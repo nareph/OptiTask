@@ -7,7 +7,17 @@ edition = "2021"
 
 [dependencies]
 actix-web = "4"
-serde = { version = "1.0", features = ["derive"] } # Pour la sérialisation/désérialisation JSON
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] } # Pour l'async
-dotenvy = "0.15" # Pour charger les variables d'environnement
-sqlx = { version = "0.7", features = [ "runtime-tokio-rustls", "postgres", "uuid", "chrono" ] } # Pour interagir avec PostgreSQL
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+dotenvy = "0.15"
+# sqlx = ... <-- Vous pouvez commenter ou supprimer sqlx si vous passez entièrement à Diesel pour la DB
+# ... autres dépendances
+
+diesel = { version = "2.1.0", features = ["postgres", "uuid", "chrono", "r2d2"] }
+# "postgres" pour le support PostgreSQL
+# "uuid" pour le type de données UUID
+# "chrono" pour les types de données date/heure
+# "r2d2" pour le pooling de connexions (très important pour les serveurs web)
+uuid = { version = "1", features = ["serde", "v4"] } # Si vous utilisez le type uuid directement
+chrono = { version = "0.4", features = ["serde"] } # Si vous utilisez le type chrono directement
+r2d2 = "0.8" # Pour le pool de connexion
