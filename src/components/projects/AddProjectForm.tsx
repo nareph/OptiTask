@@ -1,6 +1,7 @@
 "use client"; // Ce composant utilise des hooks React
 
-import { createProject, CreateProjectPayload, isApiError, Project } from "@/lib/apiClient"; // Ajustez le chemin si nécessaire
+import { isApiError } from "@/services/common";
+import { createProject, CreateProjectPayload, Project } from "@/services/projectApi";
 import { useSession } from "next-auth/react"; // Pour obtenir la session
 import { FormEvent, useState } from "react";
 

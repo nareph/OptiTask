@@ -1,7 +1,8 @@
 // src/components/projects/EditProjectForm.tsx
 "use client";
 
-import { isApiError, Project, updateProject, UpdateProjectData } from "@/lib/apiClient";
+import { isApiError } from "@/services/common";
+import { Project, updateProject, UpdateProjectData } from "@/services/projectApi";
 import { useSession } from "next-auth/react";
 import { FormEvent, useEffect, useState } from "react";
 

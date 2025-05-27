@@ -1,7 +1,8 @@
 // src/components/projects/ProjectList.tsx
 "use client";
 
-import { deleteProject, fetchProjects, isApiError, Project } from "@/lib/apiClient";
+import { isApiError } from "@/services/common";
+import { deleteProject, fetchProjects, Project } from "@/services/projectApi";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
 import AddProjectForm from "./AddProjectForm";
