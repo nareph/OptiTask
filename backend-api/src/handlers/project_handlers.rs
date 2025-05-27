@@ -4,14 +4,13 @@ use crate::db::DbPool;
 use crate::error_handler::ServiceError;
 use crate::models::{
     CreateProjectPayload, NewProject, Project, UpdateProjectChangeset, UpdateProjectPayload,
-}; // Assurez-vous que UpdateProject est bien importé
+};
 use crate::schema::projects::{self, dsl::*};
 use actix_web::{delete, get, post, put, web, HttpResponse};
 use chrono::Utc; // Importez Utc
 use diesel::prelude::*;
 use diesel::RunQueryDsl;
 use serde_json::json;
-use serde_json::Value as JsonValue;
 use uuid::Uuid;
 
 #[post("")]
@@ -105,35 +104,23 @@ pub async fn update_project_handler(
     pool: web::Data<DbPool>,
     authenticated_user: AuthenticatedUser,
     project_id_path: web::Path<Uuid>,
-    payload: web::Json<UpdateProjectPayload>, // Utilise UpdateProjectPayload
+    payload: web::Json<UpdateProjectPayload>,
 ) -> Result<HttpResponse, ServiceError> {
     let user_uuid = authenticated_user.id;
     let project_to_update_id = project_id_path.into_inner();
 
-    log::info!(
-        "Update payload received for project {}: {:?}",
-        project_to_update_id,
-        payload
-    );
-
     let project_changes = UpdateProjectChangeset {
         name: payload.name.clone(),
-        color: payload.color.clone(), // Utiliser directement
+        color: payload.color.clone(),
         updated_at: Some(Utc::now().naive_utc()),
     };
-
-    log::info!(
-        "Changeset to apply for project {}: {:?}",
-        project_to_update_id,
-        project_changes
-    );
 
     let updated_project = web::block(move || {
         let mut conn = pool.get()?;
         diesel::update(
-            projects // Il est bon de s'assurer que l'utilisateur est propriétaire
+            projects
                 .filter(id.eq(project_to_update_id))
-                .filter(user_id.eq(user_uuid)), // Vérification de propriété
+                .filter(user_id.eq(user_uuid)),
         )
         .set(&project_changes)
         .get_result::<Project>(&mut conn)
@@ -148,7 +135,7 @@ pub async fn update_project_handler(
     Ok(HttpResponse::Ok().json(updated_project))
 }
 
-#[delete("/{project_id_path}")] // Correction du path ici
+#[delete("/{project_id_path}")]
 pub async fn delete_project_handler(
     pool: web::Data<DbPool>,
     authenticated_user: AuthenticatedUser,

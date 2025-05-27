@@ -2,14 +2,14 @@
 mod auth_utils;
 mod db;
 mod error_handler;
+mod handlers; // Déclarez le nouveau module parent 'handlers'
 mod models;
-mod project_handlers;
 pub mod schema;
-mod task_handlers; // Assurez-vous que ce module est déclaré
 
 use actix_web::{get, web, App, HttpResponse, HttpServer};
 use db::DbPool;
 
+// ... (health_check function) ...
 #[get("/health")]
 async fn health_check(
     pool: web::Data<DbPool>,
@@ -43,20 +43,27 @@ async fn main() -> std::io::Result<()> {
             .service(health_check)
             .service(
                 web::scope("/projects")
-                    .service(project_handlers::create_project_handler)
-                    .service(project_handlers::list_projects_handler)
-                    .service(project_handlers::get_project_handler)
-                    .service(project_handlers::update_project_handler)
-                    .service(project_handlers::delete_project_handler),
+                    .service(handlers::project_handlers::create_project_handler)
+                    .service(handlers::project_handlers::list_projects_handler)
+                    .service(handlers::project_handlers::get_project_handler)
+                    .service(handlers::project_handlers::update_project_handler)
+                    .service(handlers::project_handlers::delete_project_handler),
             )
             .service(
-                // Enregistrez tous les handlers de tâches
                 web::scope("/tasks")
-                    .service(task_handlers::create_task_handler)
-                    .service(task_handlers::list_tasks_handler)
-                    .service(task_handlers::get_task_handler)
-                    .service(task_handlers::update_task_handler)
-                    .service(task_handlers::delete_task_handler),
+                    .service(handlers::task_handlers::create_task_handler)
+                    .service(handlers::task_handlers::list_tasks_handler)
+                    .service(handlers::task_handlers::get_task_handler)
+                    .service(handlers::task_handlers::update_task_handler)
+                    .service(handlers::task_handlers::delete_task_handler),
+            )
+            .service(
+                web::scope("/labels")
+                    .service(handlers::label_handlers::create_label_handler)
+                    .service(handlers::label_handlers::list_labels_handler)
+                    .service(handlers::label_handlers::get_label_handler)
+                    .service(handlers::label_handlers::update_label_handler)
+                    .service(handlers::label_handlers::delete_label_handler),
             )
     })
     .bind(server_address)?
