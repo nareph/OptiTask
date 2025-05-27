@@ -235,7 +235,6 @@ pub struct NewTaskLabelAssociation {
 #[diesel(table_name = time_entries)]
 #[diesel(belongs_to(Task))]
 pub struct TimeEntry {
-    /* ... comme avant ... */
     pub id: Uuid,
     pub user_id: Uuid,
     pub task_id: Uuid,
@@ -262,7 +261,6 @@ pub struct NewTimeEntry {
 #[derive(AsChangeset, Debug)]
 #[diesel(table_name = time_entries)]
 pub struct UpdateTimeEntryChangeset {
-    /* ... comme avant, avec updated_at ... */
     pub start_time: Option<NaiveDateTime>,
     pub end_time: Option<Option<NaiveDateTime>>,
     pub duration_seconds: Option<Option<i32>>,
@@ -357,7 +355,6 @@ fn default_per_page() -> i64 {
 }
 #[derive(Serialize, Debug)]
 pub struct PaginatedResponse<T> {
-    /* ... comme avant ... */
     pub items: Vec<T>,
     pub total_items: i64,
     pub total_pages: i64,

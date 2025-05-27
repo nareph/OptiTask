@@ -69,6 +69,14 @@ async fn main() -> std::io::Result<()> {
                     .service(handlers::label_handlers::update_label_handler)
                     .service(handlers::label_handlers::delete_label_handler),
             )
+            .service(
+                web::scope("/time-entries")
+                    .service(handlers::time_entry_handlers::create_time_entry_handler)
+                    .service(handlers::time_entry_handlers::list_time_entries_handler)
+                    .service(handlers::time_entry_handlers::get_time_entry_handler)
+                    .service(handlers::time_entry_handlers::update_time_entry_handler)
+                    .service(handlers::time_entry_handlers::delete_time_entry_handler),
+            )
     })
     .bind(server_address)?
     .run()
