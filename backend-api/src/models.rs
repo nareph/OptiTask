@@ -1,5 +1,5 @@
 use crate::schema::{labels, projects, task_labels, tasks, time_entries};
-use chrono::{NaiveDate, NaiveDateTime, Utc};
+use chrono::{NaiveDate, NaiveDateTime};
 use diesel::prelude::*;
 use serde::{Deserialize, Deserializer, Serialize}; // Deserializer est nécessaire pour deserialize_with
 use uuid::Uuid;

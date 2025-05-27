@@ -11,34 +11,34 @@ pub enum ServiceError {
     InternalServerError(String),
     BadRequest(String),
     Unauthorized(String),
-    DatabaseError(String),
+    DatabaseError(String), // Message déjà formaté
     NotFound(String),
-    PoolError(String),
+    PoolError(String), // Message déjà formaté
 }
 
 impl ServiceError {
     fn from_diesel_error(error: DieselError) -> ServiceError {
         match error {
             DieselError::DatabaseError(kind, info) => {
-                let message = format!("Database error: {:?} - {}", kind, info.message());
-                // log::error!("{}", message); // Loggé dans ResponseError si c'est une erreur serveur
-                ServiceError::DatabaseError(message)
+                let detailed_message =
+                    format!("Database error: {:?} - Info: {}", kind, info.message());
+                log::error!("Internal Database Error: {}", detailed_message);
+                // Pour l'utilisateur, on peut être plus vague ou spécifique selon le cas
+                ServiceError::DatabaseError("A database operation failed.".to_string())
             }
             DieselError::NotFound => {
                 ServiceError::NotFound("The requested record was not found.".to_string())
             }
             err => {
-                let message = format!("An unexpected database error occurred: {}", err);
-                // log::error!("{}", message); // Loggé dans ResponseError si c'est une erreur serveur
-                ServiceError::DatabaseError(message)
+                log::error!("Unexpected Diesel error: {}", err);
+                ServiceError::DatabaseError("An unexpected database error occurred.".to_string())
             }
         }
     }
 
     fn from_r2d2_error(error: R2D2Error) -> ServiceError {
-        let message = format!("Failed to get database connection from pool: {}", error);
-        // log::error!("{}", message); // Loggé dans ResponseError si c'est une erreur serveur
-        ServiceError::PoolError("Could not connect to the database.".to_string())
+        log::error!("R2D2 Pool error: {}", error);
+        ServiceError::PoolError("Could not connect to the database pool.".to_string())
     }
 }
 
@@ -47,7 +47,6 @@ impl From<DieselError> for ServiceError {
         ServiceError::from_diesel_error(error)
     }
 }
-
 impl From<R2D2Error> for ServiceError {
     fn from(error: R2D2Error) -> ServiceError {
         ServiceError::from_r2d2_error(error)
@@ -81,21 +80,34 @@ impl ResponseError for ServiceError {
 
     fn error_response(&self) -> HttpResponse {
         let status_code = self.status_code();
+        // Le log de l'erreur détaillée est maintenant dans les constructeurs from_diesel_error/from_r2d2_error
+        // ou dans les handlers pour InternalServerError/BadRequest/Unauthorized s'ils sont créés manuellement.
+        // Ici, on logue juste le message qui sera envoyé à l'utilisateur, pour le contexte.
         let user_facing_message = match status_code.as_u16() < 500 {
             true => self.to_string(),
             false => "An internal server error occurred. Please try again later.".to_string(),
         };
 
         if status_code.is_server_error() {
-            log::error!("Server Error Response ({}): {}", status_code, self);
+            // On pourrait logguer `self` ici si on veut la version formatée du Display
+            // mais les détails sont déjà loggués dans from_diesel_error ou from_r2d2_error
+            log::error!(
+                "Responding with server error ({}): {}",
+                status_code,
+                user_facing_message
+            );
         } else {
-            log::warn!("Client Error Response ({}): {}", status_code, self);
+            log::warn!(
+                "Responding with client error ({}): {}",
+                status_code,
+                user_facing_message
+            );
         }
 
         HttpResponse::build(status_code).json(json!({
             "status": "error",
             "statusCode": status_code.as_u16(),
-            "message": user_facing_message // Message pour l'utilisateur
+            "message": user_facing_message
         }))
     }
 }

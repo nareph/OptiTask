@@ -55,7 +55,11 @@ async fn main() -> std::io::Result<()> {
                     .service(handlers::task_handlers::list_tasks_handler)
                     .service(handlers::task_handlers::get_task_handler)
                     .service(handlers::task_handlers::update_task_handler)
-                    .service(handlers::task_handlers::delete_task_handler),
+                    .service(handlers::task_handlers::delete_task_handler)
+                    // Services pour les labels d'une tâche (utilisent le même scope /tasks)
+                    .service(handlers::task_label_handlers::add_label_to_task_handler) // POST /tasks/{taskId}/labels
+                    .service(handlers::task_label_handlers::list_labels_for_task_handler) // GET /tasks/{taskId}/labels
+                    .service(handlers::task_label_handlers::remove_label_from_task_handler), // DELETE /tasks/{taskId}/labels/{labelId}
             )
             .service(
                 web::scope("/labels")

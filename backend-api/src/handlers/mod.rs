@@ -2,4 +2,5 @@
 pub mod label_handlers;
 pub mod project_handlers;
 pub mod task_handlers;
+pub mod task_label_handlers;
 // pub mod task_label_handlers; // Quand vous l'ajouterez
