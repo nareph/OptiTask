@@ -1,61 +1,67 @@
-// OptiTask/backend-api/src/models.rs
-
-use crate::schema::{labels, projects, task_labels, tasks, time_entries}; // Importez vos tables du schéma
-use chrono::{NaiveDate, NaiveDateTime}; // Pour les types de date et d'heure
-use diesel::prelude::*; // Traits courants de Diesel (Queryable, Insertable, etc.)
-use serde::{Deserialize, Serialize}; // Pour la sérialisation/désérialisation JSON
-use uuid::Uuid; // Pour le type UUID
+use crate::schema::{labels, projects, task_labels, tasks, time_entries};
+use chrono::{NaiveDate, NaiveDateTime, Utc}; // Utc est nécessaire pour générer updated_at
+use diesel::prelude::*;
+use serde::Deserializer;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid; // Ajoutez Deserializer
 
 // --- Project Model ---
-#[derive(Queryable, Selectable, Identifiable, Serialize, Deserialize, Debug, Clone)]
-#[diesel(table_name = projects)] // Lie cette struct à la table 'projects' du schéma
-#[diesel(check_for_backend(diesel::pg::Pg))] // Spécifie le backend DB pour la vérification
+#[derive(Queryable, Selectable, Identifiable, Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[diesel(table_name = projects)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Project {
     pub id: Uuid,
     pub user_id: Uuid,
     pub name: String,
-    pub color: Option<String>, // Optionnel car nullable dans la DB
+    pub color: Option<String>,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
 
-#[derive(Insertable, Deserialize, Debug)]
+#[derive(Insertable, Deserialize, Debug)] // Deserialize pour les payloads JSON
 #[diesel(table_name = projects)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct NewProject {
-    // Pas d'id ici, car il est généré par la DB (DEFAULT uuid_generate_v4())
-    // Pas de created_at/updated_at non plus, car ils ont des valeurs DEFAULT NOW()
-    pub user_id: Uuid, // Ce sera l'ID de l'utilisateur authentifié
+    pub user_id: Uuid,
     pub name: String,
     pub color: Option<String>,
+    // created_at et updated_at sont gérés par la DB (DEFAULT NOW())
 }
 
-// Optionnel: pour les mises à jour, si vous voulez permettre de ne mettre à jour que certains champs
-#[derive(AsChangeset, Deserialize, Debug)]
+// Struct pour AsChangeset lors des mises à jour de projets
+#[derive(AsChangeset, Debug)] // Pas de Deserialize ici, elle est construite à partir du Payload
 #[diesel(table_name = projects)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct UpdateProject {
+pub struct UpdateProjectChangeset {
     pub name: Option<String>,
-    pub color: Option<Option<String>>, // Double Option pour pouvoir passer explicitement NULL
-                                       // updated_at sera géré par un trigger ou manuellement lors de la mise à jour
+    pub color: Option<Option<String>>, // Pour distinguer "ne pas toucher" vs "mettre à NULL"
+    pub updated_at: Option<NaiveDateTime>, // Toujours mis à jour
 }
 
 // --- Task Model ---
 #[derive(
-    Queryable, Selectable, Identifiable, Associations, Serialize, Deserialize, Debug, Clone,
+    Queryable,
+    Selectable,
+    Identifiable,
+    Associations,
+    Serialize,
+    Deserialize,
+    Debug,
+    Clone,
+    PartialEq,
 )]
 #[diesel(table_name = tasks)]
-#[diesel(belongs_to(Project, foreign_key = project_id))] // Définit la relation avec Project
+#[diesel(belongs_to(Project, foreign_key = project_id))]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Task {
     pub id: Uuid,
     pub user_id: Uuid,
-    pub project_id: Option<Uuid>, // Optionnel car la tâche peut ne pas être liée à un projet
+    pub project_id: Option<Uuid>,
     pub title: String,
     pub description: Option<String>,
-    pub status: String,              // ex: "todo", "inprogress", "done"
-    pub due_date: Option<NaiveDate>, // Utilise NaiveDate pour les dates sans heure
-    #[diesel(column_name = task_order)] // Mappe le champ Rust 'order' à la colonne 'task_order'
+    pub status: String,
+    pub due_date: Option<NaiveDate>,
+    #[diesel(column_name = task_order)]
     pub order: Option<i32>,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
@@ -69,31 +75,28 @@ pub struct NewTask {
     pub project_id: Option<Uuid>,
     pub title: String,
     pub description: Option<String>,
-    // La DB a un DEFAULT 'todo' pour status, mais c'est bien de pouvoir le spécifier
-    pub status: Option<String>,
+    pub status: Option<String>, // La DB a un DEFAULT, mais on peut le surcharger
     pub due_date: Option<NaiveDate>,
     #[diesel(column_name = task_order)]
     pub order: Option<i32>,
-    // created_at et updated_at sont gérés par la DB (DEFAULT ou trigger)
 }
 
-// Optionnel: pour les mises à jour
-#[derive(AsChangeset, Deserialize, Debug)]
+#[derive(AsChangeset, Debug)] // Pas de Deserialize ici
 #[diesel(table_name = tasks)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct UpdateTask {
-    pub project_id: Option<Option<Uuid>>, // Permet de mettre à NULL ou de changer
+pub struct UpdateTaskChangeset {
+    pub project_id: Option<Option<Uuid>>,
     pub title: Option<String>,
     pub description: Option<Option<String>>,
     pub status: Option<String>,
     pub due_date: Option<Option<NaiveDate>>,
     #[diesel(column_name = task_order)]
     pub order: Option<Option<i32>>,
-    // updated_at sera géré par un trigger ou manuellement
+    pub updated_at: Option<NaiveDateTime>, // Toujours mis à jour
 }
 
-// --- Label Model (mis à jour avec timestamps) ---
-#[derive(Queryable, Selectable, Identifiable, Serialize, Deserialize, Debug, Clone)]
+// --- Label Model ---
+#[derive(Queryable, Selectable, Identifiable, Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[diesel(table_name = labels)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Label {
@@ -101,8 +104,8 @@ pub struct Label {
     pub user_id: Uuid,
     pub name: String,
     pub color: Option<String>,
-    pub created_at: NaiveDateTime, // Ajouté
-    pub updated_at: NaiveDateTime, // Ajouté
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 }
 
 #[derive(Insertable, Deserialize, Debug)]
@@ -112,48 +115,58 @@ pub struct NewLabel {
     pub user_id: Uuid,
     pub name: String,
     pub color: Option<String>,
-    // created_at et updated_at sont gérés par la DB (DEFAULT ou trigger)
 }
 
-#[derive(AsChangeset, Deserialize, Debug)]
+#[derive(AsChangeset, Debug)] // Pas de Deserialize ici
 #[diesel(table_name = labels)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct UpdateLabel {
+pub struct UpdateLabelChangeset {
     pub name: Option<String>,
     pub color: Option<Option<String>>,
-    // updated_at sera géré par un trigger ou manuellement
+    pub updated_at: Option<NaiveDateTime>, // Toujours mis à jour
 }
 
 // --- TaskLabel Model (table de jointure) ---
-// Une struct Queryable pour TaskLabel peut être utile si vous voulez charger les labels d'une tâche
-// avec leurs informations de jointure, ou lister toutes les associations.
 #[derive(
-    Queryable, Selectable, Associations, Identifiable, Serialize, Deserialize, Debug, Clone,
+    Queryable,
+    Selectable,
+    Associations,
+    Identifiable,
+    Serialize,
+    Deserialize,
+    Debug,
+    Clone,
+    PartialEq,
 )]
 #[diesel(table_name = task_labels)]
 #[diesel(belongs_to(Task))]
 #[diesel(belongs_to(Label))]
-#[diesel(primary_key(task_id, label_id))] // Clé primaire composite
+#[diesel(primary_key(task_id, label_id))]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct TaskLabel {
-    // Renommé de NewTaskLabel pour être un modèle complet
     pub task_id: Uuid,
     pub label_id: Uuid,
 }
 
-// Pour insérer une nouvelle association Task-Label
-#[derive(Insertable, Deserialize, Debug)]
+#[derive(Insertable, Deserialize, Debug)] // Deserialize si vous avez un endpoint pour créer ça directement
 #[diesel(table_name = task_labels)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct NewTaskLabelAssociation {
-    // Nom plus descriptif pour l'insertion
     pub task_id: Uuid,
     pub label_id: Uuid,
 }
 
-// --- TimeEntry Model (mis à jour avec timestamps) ---
+// --- TimeEntry Model ---
 #[derive(
-    Queryable, Selectable, Identifiable, Associations, Serialize, Deserialize, Debug, Clone,
+    Queryable,
+    Selectable,
+    Identifiable,
+    Associations,
+    Serialize,
+    Deserialize,
+    Debug,
+    Clone,
+    PartialEq,
 )]
 #[diesel(table_name = time_entries)]
 #[diesel(belongs_to(Task))]
@@ -166,8 +179,8 @@ pub struct TimeEntry {
     pub end_time: Option<NaiveDateTime>,
     pub duration_seconds: Option<i32>,
     pub is_pomodoro_session: bool,
-    pub created_at: NaiveDateTime, // Ajouté
-    pub updated_at: NaiveDateTime, // Ajouté
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 }
 
 #[derive(Insertable, Deserialize, Debug)]
@@ -179,30 +192,131 @@ pub struct NewTimeEntry {
     pub start_time: NaiveDateTime,
     pub end_time: Option<NaiveDateTime>,
     pub duration_seconds: Option<i32>,
-    pub is_pomodoro_session: Option<bool>, // DEFAULT false dans la DB, donc Option ici
-                                           // created_at et updated_at sont gérés par la DB (DEFAULT ou trigger)
+    pub is_pomodoro_session: Option<bool>, // La DB a un DEFAULT false
 }
 
-#[derive(AsChangeset, Deserialize, Debug)]
+#[derive(AsChangeset, Debug)] // Pas de Deserialize ici
 #[diesel(table_name = time_entries)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct UpdateTimeEntry {
-    // On ne met généralement pas à jour task_id ou user_id d'une time_entry existante.
-    // On pourrait permettre de mettre à jour start_time, end_time, duration_seconds.
+pub struct UpdateTimeEntryChangeset {
     pub start_time: Option<NaiveDateTime>,
-    pub end_time: Option<Option<NaiveDateTime>>, // Permet de mettre à NULL
+    pub end_time: Option<Option<NaiveDateTime>>,
     pub duration_seconds: Option<Option<i32>>,
     pub is_pomodoro_session: Option<bool>,
-    // updated_at sera géré par un trigger ou manuellement
+    pub updated_at: Option<NaiveDateTime>, // Toujours mis à jour
+}
+
+// --- Structs pour les DTOs de Payload (celles qui viennent du JSON) ---
+// Ces structs sont celles que vous désérialisez depuis le corps des requêtes.
+// Elles sont séparées des structs AsChangeset pour plus de clarté.
+
+#[derive(Deserialize, Debug)]
+pub struct CreateProjectPayload {
+    pub name: String,
+    pub color: Option<String>,
+}
+
+// Fonction helper pour désérialiser Option<Option<T>>
+// où JSON null devient Some(None) et champ absent devient None.
+fn deserialize_optional_nullable_string<'de, D>(
+    deserializer: D,
+) -> Result<Option<Option<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    // D'abord, désérialiser comme Option<String>
+    // Si c'est Some("valeur"), on retourne Some(Some("valeur"))
+    // Si c'est None (parce que le JSON était `null`), on retourne Some(None)
+    match Option::<String>::deserialize(deserializer) {
+        Ok(Some(s)) => Ok(Some(Some(s))),
+        Ok(None) => Ok(Some(None)), // JSON null devient Some(None)
+        Err(e) => Err(e),
+    }
+}
+
+#[derive(serde::Deserialize, Debug)]
+pub struct UpdateProjectPayload {
+    pub name: Option<String>,
+    #[serde(
+        deserialize_with = "deserialize_optional_nullable_string", // Utilise notre fonction custom
+        default // `default` ici signifie que si la clé "color" est absente, le champ sera Option::None
+    )]
+    pub color: Option<Option<String>>, // Revient à Option<Option<String>>
+}
+
+#[derive(Deserialize, Debug)]
+pub struct CreateTaskPayload {
+    pub project_id: Option<Uuid>,
+    pub title: String,
+    pub description: Option<String>,
+    pub status: Option<String>,
+    pub due_date: Option<NaiveDate>,
+    pub order: Option<i32>,
+    // pub labels: Option<Vec<Uuid>>, // Si vous voulez associer des labels à la création
+}
+
+#[derive(Deserialize, Debug)]
+pub struct UpdateTaskPayload {
+    #[serde(default)]
+    pub project_id: Option<serde_json::Value>, // Pour null vs absent
+    pub title: Option<String>,
+    #[serde(default)]
+    pub description: Option<serde_json::Value>, // Pour null vs absent
+    pub status: Option<String>,
+    #[serde(default)]
+    pub due_date: Option<serde_json::Value>, // Pour null vs absent
+    #[serde(default)]
+    pub order: Option<serde_json::Value>, // Pour null vs absent
+}
+
+#[derive(Deserialize, Debug)]
+pub struct CreateLabelPayload {
+    pub name: String,
+    pub color: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct UpdateLabelPayload {
+    pub name: Option<String>,
+    #[serde(default)]
+    pub color: Option<serde_json::Value>, // Pour null vs absent
+}
+
+#[derive(Deserialize, Debug)]
+pub struct CreateTimeEntryPayload {
+    pub task_id: Uuid,
+    pub start_time: NaiveDateTime, // Attendre un timestamp ISO8601
+    pub end_time: Option<NaiveDateTime>,
+    pub duration_seconds: Option<i32>,
+    pub is_pomodoro_session: Option<bool>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct UpdateTimeEntryPayload {
+    pub start_time: Option<NaiveDateTime>,
+    #[serde(default)]
+    pub end_time: Option<serde_json::Value>,
+    #[serde(default)]
+    pub duration_seconds: Option<serde_json::Value>,
+    pub is_pomodoro_session: Option<bool>,
 }
 
 // --- Structs pour les requêtes et réponses paginées (Exemple) ---
-// Vous pourriez en avoir besoin plus tard pour lister des items
+// Utilisé si vous implémentez la pagination pour les listes
 #[derive(Deserialize, Debug)]
 pub struct PaginationParams {
-    pub page: Option<i64>,
-    pub per_page: Option<i64>,
+    #[serde(default = "default_page")]
+    pub page: i64,
+    #[serde(default = "default_per_page")]
+    pub per_page: i64,
 }
+
+fn default_page() -> i64 {
+    1
+}
+fn default_per_page() -> i64 {
+    10
+} // Ou une autre valeur par défaut
 
 #[derive(Serialize, Debug)]
 pub struct PaginatedResponse<T> {
