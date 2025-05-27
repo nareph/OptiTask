@@ -5,6 +5,7 @@ mod error_handler;
 mod models;
 mod project_handlers;
 pub mod schema;
+mod task_handlers; // Assurez-vous que ce module est déclaré
 
 use actix_web::{get, web, App, HttpResponse, HttpServer};
 use db::DbPool;
@@ -14,7 +15,7 @@ async fn health_check(
     pool: web::Data<DbPool>,
 ) -> Result<HttpResponse, error_handler::ServiceError> {
     web::block(move || pool.get()).await.map_err(|e| {
-        eprintln!("Blocking task error (health_check pool.get): {:?}", e);
+        log::error!("Blocking task error (health_check pool.get): {:?}", e);
         error_handler::ServiceError::InternalServerError("Failed to check DB pool".to_string())
     })??;
 
@@ -48,7 +49,15 @@ async fn main() -> std::io::Result<()> {
                     .service(project_handlers::update_project_handler)
                     .service(project_handlers::delete_project_handler),
             )
-        // ... Autres scopes et services ...
+            .service(
+                // Enregistrez tous les handlers de tâches
+                web::scope("/tasks")
+                    .service(task_handlers::create_task_handler)
+                    .service(task_handlers::list_tasks_handler)
+                    .service(task_handlers::get_task_handler)
+                    .service(task_handlers::update_task_handler)
+                    .service(task_handlers::delete_task_handler),
+            )
     })
     .bind(server_address)?
     .run()

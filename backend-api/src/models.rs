@@ -1,15 +1,81 @@
 use crate::schema::{labels, projects, task_labels, tasks, time_entries};
-use chrono::{NaiveDate, NaiveDateTime, Utc}; // Utc est nécessaire pour générer updated_at
+use chrono::{NaiveDate, NaiveDateTime, Utc};
 use diesel::prelude::*;
-use serde::Deserializer;
-use serde::{Deserialize, Serialize};
-use uuid::Uuid; // Ajoutez Deserializer
+use serde::{Deserialize, Deserializer, Serialize}; // Deserializer est nécessaire pour deserialize_with
+use uuid::Uuid;
+
+// --- Fonctions Helper pour la Désérialisation des Champs Optionnels/Nullables ---
+
+// Pour Option<Option<String>>
+fn deserialize_opt_opt_string<'de, D>(deserializer: D) -> Result<Option<Option<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    match Option::<String>::deserialize(deserializer) {
+        Ok(Some(s)) => Ok(Some(Some(s))),
+        Ok(None) => Ok(Some(None)), // JSON null -> Some(None)
+        Err(e) => Err(e),
+    }
+}
+
+// Pour Option<Option<Uuid>>
+fn deserialize_opt_opt_uuid<'de, D>(deserializer: D) -> Result<Option<Option<Uuid>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    match Option::<Uuid>::deserialize(deserializer) {
+        Ok(Some(u)) => Ok(Some(Some(u))),
+        Ok(None) => Ok(Some(None)),
+        Err(e) => Err(e),
+    }
+}
+
+// Pour Option<Option<NaiveDate>>
+fn deserialize_opt_opt_naivedate<'de, D>(
+    deserializer: D,
+) -> Result<Option<Option<NaiveDate>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    match Option::<NaiveDate>::deserialize(deserializer) {
+        Ok(Some(d)) => Ok(Some(Some(d))),
+        Ok(None) => Ok(Some(None)),
+        Err(e) => Err(e),
+    }
+}
+
+// Pour Option<Option<i32>>
+fn deserialize_opt_opt_i32<'de, D>(deserializer: D) -> Result<Option<Option<i32>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    match Option::<i32>::deserialize(deserializer) {
+        Ok(Some(i)) => Ok(Some(Some(i))),
+        Ok(None) => Ok(Some(None)),
+        Err(e) => Err(e),
+    }
+}
+
+// Pour Option<Option<NaiveDateTime>>
+fn deserialize_opt_opt_naivedatetime<'de, D>(
+    deserializer: D,
+) -> Result<Option<Option<NaiveDateTime>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    match Option::<NaiveDateTime>::deserialize(deserializer) {
+        Ok(Some(dt)) => Ok(Some(Some(dt))),
+        Ok(None) => Ok(Some(None)),
+        Err(e) => Err(e),
+    }
+}
 
 // --- Project Model ---
 #[derive(Queryable, Selectable, Identifiable, Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[diesel(table_name = projects)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Project {
+    /* ... comme avant ... */
     pub id: Uuid,
     pub user_id: Uuid,
     pub name: String,
@@ -18,24 +84,22 @@ pub struct Project {
     pub updated_at: NaiveDateTime,
 }
 
-#[derive(Insertable, Deserialize, Debug)] // Deserialize pour les payloads JSON
+#[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = projects)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct NewProject {
+    /* ... comme avant ... */
     pub user_id: Uuid,
     pub name: String,
     pub color: Option<String>,
-    // created_at et updated_at sont gérés par la DB (DEFAULT NOW())
 }
 
-// Struct pour AsChangeset lors des mises à jour de projets
-#[derive(AsChangeset, Debug)] // Pas de Deserialize ici, elle est construite à partir du Payload
+#[derive(AsChangeset, Debug)]
 #[diesel(table_name = projects)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct UpdateProjectChangeset {
+    /* ... comme avant ... */
     pub name: Option<String>,
-    pub color: Option<Option<String>>, // Pour distinguer "ne pas toucher" vs "mettre à NULL"
-    pub updated_at: Option<NaiveDateTime>, // Toujours mis à jour
+    pub color: Option<Option<String>>,
+    pub updated_at: Option<NaiveDateTime>,
 }
 
 // --- Task Model ---
@@ -52,8 +116,8 @@ pub struct UpdateProjectChangeset {
 )]
 #[diesel(table_name = tasks)]
 #[diesel(belongs_to(Project, foreign_key = project_id))]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Task {
+    /* ... comme avant ... */
     pub id: Uuid,
     pub user_id: Uuid,
     pub project_id: Option<Uuid>,
@@ -69,22 +133,22 @@ pub struct Task {
 
 #[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = tasks)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct NewTask {
+    /* ... comme avant ... */
     pub user_id: Uuid,
     pub project_id: Option<Uuid>,
     pub title: String,
     pub description: Option<String>,
-    pub status: Option<String>, // La DB a un DEFAULT, mais on peut le surcharger
+    pub status: Option<String>,
     pub due_date: Option<NaiveDate>,
     #[diesel(column_name = task_order)]
     pub order: Option<i32>,
 }
 
-#[derive(AsChangeset, Debug)] // Pas de Deserialize ici
+#[derive(AsChangeset, Debug)]
 #[diesel(table_name = tasks)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct UpdateTaskChangeset {
+    /* ... comme avant, avec updated_at ... */
     pub project_id: Option<Option<Uuid>>,
     pub title: Option<String>,
     pub description: Option<Option<String>>,
@@ -92,14 +156,14 @@ pub struct UpdateTaskChangeset {
     pub due_date: Option<Option<NaiveDate>>,
     #[diesel(column_name = task_order)]
     pub order: Option<Option<i32>>,
-    pub updated_at: Option<NaiveDateTime>, // Toujours mis à jour
+    pub updated_at: Option<NaiveDateTime>,
 }
 
 // --- Label Model ---
 #[derive(Queryable, Selectable, Identifiable, Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[diesel(table_name = labels)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Label {
+    /* ... comme avant ... */
     pub id: Uuid,
     pub user_id: Uuid,
     pub name: String,
@@ -110,23 +174,23 @@ pub struct Label {
 
 #[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = labels)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct NewLabel {
+    /* created_at/updated_at omis car gérés par DB */
     pub user_id: Uuid,
     pub name: String,
     pub color: Option<String>,
 }
 
-#[derive(AsChangeset, Debug)] // Pas de Deserialize ici
+#[derive(AsChangeset, Debug)]
 #[diesel(table_name = labels)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct UpdateLabelChangeset {
+    /* ... comme avant, avec updated_at ... */
     pub name: Option<String>,
     pub color: Option<Option<String>>,
-    pub updated_at: Option<NaiveDateTime>, // Toujours mis à jour
+    pub updated_at: Option<NaiveDateTime>,
 }
 
-// --- TaskLabel Model (table de jointure) ---
+// --- TaskLabel Model ---
 #[derive(
     Queryable,
     Selectable,
@@ -142,16 +206,16 @@ pub struct UpdateLabelChangeset {
 #[diesel(belongs_to(Task))]
 #[diesel(belongs_to(Label))]
 #[diesel(primary_key(task_id, label_id))]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct TaskLabel {
+    /* ... comme avant ... */
     pub task_id: Uuid,
     pub label_id: Uuid,
 }
 
-#[derive(Insertable, Deserialize, Debug)] // Deserialize si vous avez un endpoint pour créer ça directement
+#[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = task_labels)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct NewTaskLabelAssociation {
+    /* ... comme avant ... */
     pub task_id: Uuid,
     pub label_id: Uuid,
 }
@@ -170,8 +234,8 @@ pub struct NewTaskLabelAssociation {
 )]
 #[diesel(table_name = time_entries)]
 #[diesel(belongs_to(Task))]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct TimeEntry {
+    /* ... comme avant ... */
     pub id: Uuid,
     pub user_id: Uuid,
     pub task_id: Uuid,
@@ -185,30 +249,28 @@ pub struct TimeEntry {
 
 #[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = time_entries)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct NewTimeEntry {
+    /* created_at/updated_at omis car gérés par DB */
     pub user_id: Uuid,
     pub task_id: Uuid,
     pub start_time: NaiveDateTime,
     pub end_time: Option<NaiveDateTime>,
     pub duration_seconds: Option<i32>,
-    pub is_pomodoro_session: Option<bool>, // La DB a un DEFAULT false
+    pub is_pomodoro_session: Option<bool>,
 }
 
-#[derive(AsChangeset, Debug)] // Pas de Deserialize ici
+#[derive(AsChangeset, Debug)]
 #[diesel(table_name = time_entries)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct UpdateTimeEntryChangeset {
+    /* ... comme avant, avec updated_at ... */
     pub start_time: Option<NaiveDateTime>,
     pub end_time: Option<Option<NaiveDateTime>>,
     pub duration_seconds: Option<Option<i32>>,
     pub is_pomodoro_session: Option<bool>,
-    pub updated_at: Option<NaiveDateTime>, // Toujours mis à jour
+    pub updated_at: Option<NaiveDateTime>,
 }
 
-// --- Structs pour les DTOs de Payload (celles qui viennent du JSON) ---
-// Ces structs sont celles que vous désérialisez depuis le corps des requêtes.
-// Elles sont séparées des structs AsChangeset pour plus de clarté.
+// --- PAYLOAD DTOs ---
 
 #[derive(Deserialize, Debug)]
 pub struct CreateProjectPayload {
@@ -216,32 +278,11 @@ pub struct CreateProjectPayload {
     pub color: Option<String>,
 }
 
-// Fonction helper pour désérialiser Option<Option<T>>
-// où JSON null devient Some(None) et champ absent devient None.
-fn deserialize_optional_nullable_string<'de, D>(
-    deserializer: D,
-) -> Result<Option<Option<String>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    // D'abord, désérialiser comme Option<String>
-    // Si c'est Some("valeur"), on retourne Some(Some("valeur"))
-    // Si c'est None (parce que le JSON était `null`), on retourne Some(None)
-    match Option::<String>::deserialize(deserializer) {
-        Ok(Some(s)) => Ok(Some(Some(s))),
-        Ok(None) => Ok(Some(None)), // JSON null devient Some(None)
-        Err(e) => Err(e),
-    }
-}
-
-#[derive(serde::Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 pub struct UpdateProjectPayload {
     pub name: Option<String>,
-    #[serde(
-        deserialize_with = "deserialize_optional_nullable_string", // Utilise notre fonction custom
-        default // `default` ici signifie que si la clé "color" est absente, le champ sera Option::None
-    )]
-    pub color: Option<Option<String>>, // Revient à Option<Option<String>>
+    #[serde(deserialize_with = "deserialize_opt_opt_string", default)]
+    pub color: Option<Option<String>>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -252,21 +293,20 @@ pub struct CreateTaskPayload {
     pub status: Option<String>,
     pub due_date: Option<NaiveDate>,
     pub order: Option<i32>,
-    // pub labels: Option<Vec<Uuid>>, // Si vous voulez associer des labels à la création
 }
 
 #[derive(Deserialize, Debug)]
 pub struct UpdateTaskPayload {
-    #[serde(default)]
-    pub project_id: Option<serde_json::Value>, // Pour null vs absent
+    #[serde(deserialize_with = "deserialize_opt_opt_uuid", default)]
+    pub project_id: Option<Option<Uuid>>,
     pub title: Option<String>,
-    #[serde(default)]
-    pub description: Option<serde_json::Value>, // Pour null vs absent
+    #[serde(deserialize_with = "deserialize_opt_opt_string", default)]
+    pub description: Option<Option<String>>,
     pub status: Option<String>,
-    #[serde(default)]
-    pub due_date: Option<serde_json::Value>, // Pour null vs absent
-    #[serde(default)]
-    pub order: Option<serde_json::Value>, // Pour null vs absent
+    #[serde(deserialize_with = "deserialize_opt_opt_naivedate", default)]
+    pub due_date: Option<Option<NaiveDate>>,
+    #[serde(deserialize_with = "deserialize_opt_opt_i32", default)]
+    pub order: Option<Option<i32>>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -278,14 +318,14 @@ pub struct CreateLabelPayload {
 #[derive(Deserialize, Debug)]
 pub struct UpdateLabelPayload {
     pub name: Option<String>,
-    #[serde(default)]
-    pub color: Option<serde_json::Value>, // Pour null vs absent
+    #[serde(deserialize_with = "deserialize_opt_opt_string", default)]
+    pub color: Option<Option<String>>,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct CreateTimeEntryPayload {
     pub task_id: Uuid,
-    pub start_time: NaiveDateTime, // Attendre un timestamp ISO8601
+    pub start_time: NaiveDateTime,
     pub end_time: Option<NaiveDateTime>,
     pub duration_seconds: Option<i32>,
     pub is_pomodoro_session: Option<bool>,
@@ -293,16 +333,15 @@ pub struct CreateTimeEntryPayload {
 
 #[derive(Deserialize, Debug)]
 pub struct UpdateTimeEntryPayload {
-    pub start_time: Option<NaiveDateTime>,
-    #[serde(default)]
-    pub end_time: Option<serde_json::Value>,
-    #[serde(default)]
-    pub duration_seconds: Option<serde_json::Value>,
-    pub is_pomodoro_session: Option<bool>,
+    pub start_time: Option<NaiveDateTime>, // Pourrait être Option<Option<NaiveDateTime>> si on veut le mettre à NULL
+    #[serde(deserialize_with = "deserialize_opt_opt_naivedatetime", default)]
+    pub end_time: Option<Option<NaiveDateTime>>,
+    #[serde(deserialize_with = "deserialize_opt_opt_i32", default)]
+    pub duration_seconds: Option<Option<i32>>,
+    pub is_pomodoro_session: Option<bool>, // Boolean ne peut pas vraiment être "absent vs null", juste true/false/absent
 }
 
-// --- Structs pour les requêtes et réponses paginées (Exemple) ---
-// Utilisé si vous implémentez la pagination pour les listes
+// --- Pagination DTOs ---
 #[derive(Deserialize, Debug)]
 pub struct PaginationParams {
     #[serde(default = "default_page")]
@@ -310,16 +349,15 @@ pub struct PaginationParams {
     #[serde(default = "default_per_page")]
     pub per_page: i64,
 }
-
 fn default_page() -> i64 {
     1
 }
 fn default_per_page() -> i64 {
     10
-} // Ou une autre valeur par défaut
-
+}
 #[derive(Serialize, Debug)]
 pub struct PaginatedResponse<T> {
+    /* ... comme avant ... */
     pub items: Vec<T>,
     pub total_items: i64,
     pub total_pages: i64,
