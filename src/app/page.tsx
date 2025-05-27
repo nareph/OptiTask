@@ -1,22 +1,21 @@
-// OptiTask/src/app/page.tsx (Maintenant votre Dashboard)
-"use client"; // Ce composant utilise des hooks, donc il reste un Client Component
+// OptiTask/src/app/page.tsx (DashboardPage)
+"use client";
 
+import ProjectList from "@/components/projects/ProjectList"; // Importez le composant
 import { signOut, useSession } from "next-auth/react";
 import Image from 'next/image';
-import { useRouter } from "next/navigation"; // Pour la redirection si besoin (bien que le middleware s'en chargera)
-import { useEffect } from "react";
+// import { useRouter } from "next/navigation"; // Pas nécessaire si le middleware gère
+// import { useEffect } from "react"; // Pas nécessaire si le middleware gère
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
-  const router = useRouter();
+  // const router = useRouter(); // Plus besoin
 
-  // Le middleware devrait gérer la redirection si non authentifié.
-  // Mais une vérification côté client est une bonne pratique en complément.
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      // router.push("/signin"); // Le middleware s'en chargera mais c'est une sécurité en plus
-    }
-  }, [status, router]);
+  // useEffect(() => { // Plus besoin, le middleware gère
+  //   if (status === "unauthenticated") {
+  //     // router.push("/signin");
+  //   }
+  // }, [status, router]);
 
   if (status === "loading") {
     return (
@@ -26,23 +25,20 @@ export default function DashboardPage() {
     );
   }
 
-  // Si la session n'est pas chargée et que l'utilisateur n'est pas authentifié,
-  // le middleware devrait déjà avoir redirigé. Mais au cas où :
-  if (!session) {
-    // Normalement, le middleware redirige avant d'arriver ici.
-    // Vous pourriez afficher un message ou un bouton pour se connecter,
-    // mais l'idéal est que le middleware gère cela.
+  if (!session) { // Le middleware devrait avoir redirigé, ceci est une fallback
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
-        <p className="text-xl text-gray-500">Redirecting to sign in...</p>
+        <p className="text-xl text-gray-500">You need to be signed in to view this page.</p>
+        {/* Optionnel: bouton pour rediriger manuellement si le middleware a un souci */}
+        {/* <button onClick={() => router.push('/signin')}>Sign In</button> */}
       </div>
     );
   }
 
-  // L'utilisateur est authentifié
   return (
     <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-gray-50">
       <header className="w-full max-w-4xl py-4 px-6 bg-white shadow-md rounded-b-lg mb-8 flex justify-between items-center">
+        {/* ... (votre header existant) ... */}
         <h1 className="text-2xl font-bold text-blue-600">OptiTask Dashboard</h1>
         {session.user && (
           <div className="flex items-center space-x-3">
@@ -58,7 +54,7 @@ export default function DashboardPage() {
             )}
             <span className="text-sm font-medium text-gray-700 hidden sm:block">{session.user.name || session.user.email}</span>
             <button
-              onClick={() => signOut({ callbackUrl: "/signin" })} // Redirige vers la page de connexion après déconnexion
+              onClick={() => signOut({ callbackUrl: "/signin" })}
               className="px-3 py-1.5 text-sm font-semibold text-white bg-red-500 rounded-md hover:bg-red-600 transition duration-300"
             >
               Sign out
@@ -68,18 +64,20 @@ export default function DashboardPage() {
       </header>
 
       <section className="w-full max-w-4xl p-6 bg-white shadow-lg rounded-lg">
-        <h2 className="text-xl font-semibold mb-4 text-gray-800">Welcome, {session.user?.name}!</h2>
-        <p className="text-gray-600">This is your protected dashboard area.</p>
-        {session.user?.id && (
-          <p className="mt-2 text-xs text-gray-400">Your User ID: {session.user.id}</p>
-        )}
-        {/* Ici viendront vos composants de gestion de tâches, etc. */}
-      </section>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold text-gray-800">
+            Welcome, {session.user?.name}!
+          </h2>
+          {/* Vous ajouterez un bouton "Add Project" ici plus tard */}
+        </div>
 
-      {/* Pour le debug */}
-      {/* <pre className="mt-8 p-4 bg-gray-800 text-white text-xs rounded overflow-x-auto">
-        {JSON.stringify(session, null, 2)}
-      </pre> */}
+        <ProjectList /> {/* Intégrer ProjectList ici */}
+
+        {/* Pour le debug */}
+        {/* <pre className="mt-8 p-4 bg-gray-800 text-white text-xs rounded overflow-x-auto">
+          {JSON.stringify(session, null, 2)}
+        </pre> */}
+      </section>
     </main>
   );
 }
