@@ -3,6 +3,7 @@
 
 import { isApiError } from "@/services/common";
 import { Project, updateProject, UpdateProjectData } from "@/services/projectApi";
+import { DEFAULT_NO_COLOR_VALUE, PREDEFINED_COLORS } from "@/utils/colors"; // Importer depuis le fichier utilitaire
 import { useSession } from "next-auth/react";
 import { FormEvent, useEffect, useState } from "react";
 
@@ -15,14 +16,14 @@ interface EditProjectFormProps {
 export default function EditProjectForm({ projectToEdit, onProjectUpdated, onCancel }: EditProjectFormProps) {
     const { data: session, status: sessionStatus } = useSession();
     const [name, setName] = useState(projectToEdit.name);
-    const [color, setColor] = useState(projectToEdit.color || ""); // Utiliser chaîne vide si null
+    // Utiliser selectedColor pour gérer string | null
+    const [selectedColor, setSelectedColor] = useState<string | null>(projectToEdit.color || DEFAULT_NO_COLOR_VALUE);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // Mettre à jour les champs si projectToEdit change (si le composant est réutilisé)
         setName(projectToEdit.name);
-        setColor(projectToEdit.color || "");
+        setSelectedColor(projectToEdit.color || DEFAULT_NO_COLOR_VALUE); // Assurer que c'est null si pas de couleur
     }, [projectToEdit]);
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -48,15 +49,14 @@ export default function EditProjectForm({ projectToEdit, onProjectUpdated, onCan
             hasChanges = true;
         }
 
-        const newColor = color.trim() === "" ? null : color.trim();
-        if (newColor !== projectToEdit.color) {
-            updateData.color = newColor;
+        // Comparer selectedColor (string | null) avec projectToEdit.color (string | null)
+        if (selectedColor !== projectToEdit.color) {
+            updateData.color = selectedColor; // selectedColor est déjà string | null
             hasChanges = true;
         }
 
         if (!hasChanges) {
-            // setError("No changes detected."); // Ou simplement fermer
-            onCancel(); // Fermer si pas de changements
+            onCancel();
             setIsSubmitting(false);
             return;
         }
@@ -66,7 +66,9 @@ export default function EditProjectForm({ projectToEdit, onProjectUpdated, onCan
         if (isApiError(result)) {
             setError(result.message || "Failed to update project.");
         } else {
-            onProjectUpdated(result); // Informer le parent
+            onProjectUpdated(result);
+            // Pas besoin de onCancel() ici si onProjectUpdated ferme le formulaire,
+            // sinon, vous pouvez l'appeler après onProjectUpdated(result);
         }
         setIsSubmitting(false);
     };
@@ -74,16 +76,18 @@ export default function EditProjectForm({ projectToEdit, onProjectUpdated, onCan
     return (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50 p-4">
             <form onSubmit={handleSubmit} className="relative w-full max-w-md space-y-4 p-6 bg-white rounded-lg shadow-xl">
-                <h3 className="text-xl font-semibold text-gray-800 border-b pb-3">Edit Project</h3>
+                <div className="flex justify-between items-center border-b pb-3">
+                    <h3 className="text-xl font-semibold text-gray-800">Edit Project</h3>
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+                        aria-label="Close"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
 
-                <button
-                    type="button"
-                    onClick={onCancel}
-                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-                    aria-label="Close"
-                >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
 
                 {error && (
                     <div className="p-3 my-2 text-sm text-red-700 bg-red-100 rounded-md border border-red-200" role="alert">
@@ -107,22 +111,40 @@ export default function EditProjectForm({ projectToEdit, onProjectUpdated, onCan
                 </div>
 
                 <div>
-                    <label htmlFor="editProjectColor" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                         Color <span className="text-xs text-gray-500">(optional)</span>
                     </label>
-                    <div className="flex items-center space-x-2">
-                        <input
-                            type="text"
-                            id="editProjectColor"
-                            value={color}
-                            onChange={(e) => setColor(e.target.value)}
-                            className="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:bg-gray-50"
-                            placeholder="#HexColor or CSS color name"
+                    <div className="flex flex-wrap gap-2 items-center">
+                        {PREDEFINED_COLORS.map((colorOption) => (
+                            <button
+                                type="button"
+                                key={colorOption.value}
+                                title={colorOption.name}
+                                onClick={() => setSelectedColor(colorOption.value)}
+                                className={`w-7 h-7 rounded-full border-2 transition-all duration-150 ease-in-out 
+                                            ${selectedColor === colorOption.value
+                                        ? 'ring-2 ring-offset-1 ring-blue-500 border-blue-500 scale-110'
+                                        : 'border-gray-300 hover:border-gray-400'
+                                    }`}
+                                style={{ backgroundColor: colorOption.value }}
+                                disabled={isSubmitting || sessionStatus !== "authenticated"}
+                            />
+                        ))}
+                        <button
+                            type="button"
+                            title="No Color"
+                            onClick={() => setSelectedColor(null)}
+                            className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-gray-400
+                                        transition-all duration-150 ease-in-out
+                                        ${selectedColor === null
+                                    ? 'ring-2 ring-offset-1 ring-blue-500 bg-gray-100 border-blue-500 scale-110'
+                                    : 'border-gray-300 hover:border-gray-400 bg-white'
+                                }`}
                             disabled={isSubmitting || sessionStatus !== "authenticated"}
-                        />
-                        {color.trim() !== "" && (
-                            <span className="w-6 h-6 rounded-full border border-gray-300 inline-block" style={{ backgroundColor: color }}></span>
-                        )}
+                            aria-label="No color"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
                     </div>
                 </div>
 

@@ -75,7 +75,6 @@ where
 #[diesel(table_name = projects)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Project {
-    /* ... comme avant ... */
     pub id: Uuid,
     pub user_id: Uuid,
     pub name: String,
@@ -87,7 +86,6 @@ pub struct Project {
 #[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = projects)]
 pub struct NewProject {
-    /* ... comme avant ... */
     pub user_id: Uuid,
     pub name: String,
     pub color: Option<String>,
@@ -96,28 +94,20 @@ pub struct NewProject {
 #[derive(AsChangeset, Debug)]
 #[diesel(table_name = projects)]
 pub struct UpdateProjectChangeset {
-    /* ... comme avant ... */
     pub name: Option<String>,
     pub color: Option<Option<String>>,
     pub updated_at: Option<NaiveDateTime>,
 }
 
-// --- Task Model ---
+// --- Task Model (Diesel Queryable) ---
+// Cette struct est pour interagir avec la DB. Elle ne contiendra pas directement les labels.
 #[derive(
-    Queryable,
-    Selectable,
-    Identifiable,
-    Associations,
-    Serialize,
-    Deserialize,
-    Debug,
-    Clone,
-    PartialEq,
+    Queryable, Selectable, Identifiable, Associations, Deserialize, Debug, Clone, PartialEq,
 )]
 #[diesel(table_name = tasks)]
 #[diesel(belongs_to(Project, foreign_key = project_id))]
+#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Task {
-    /* ... comme avant ... */
     pub id: Uuid,
     pub user_id: Uuid,
     pub project_id: Option<Uuid>,
@@ -131,10 +121,49 @@ pub struct Task {
     pub updated_at: NaiveDateTime,
 }
 
+// === NOUVELLE STRUCT POUR LA RÉPONSE API DE TÂCHE ===
+// C'est ce que le frontend recevra pour une tâche.
+#[derive(Serialize, Deserialize, Debug, Clone)] // Ajouter Deserialize pour la cohérence si besoin
+pub struct TaskApiResponse {
+    // Champs de la tâche (copiés de la struct Task)
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub project_id: Option<Uuid>,
+    pub title: String,
+    pub description: Option<String>,
+    pub status: String,
+    pub due_date: Option<NaiveDate>,
+    #[serde(rename = "order")] // S'assurer que le JSON correspond à 'order' que le frontend attend
+    pub task_order: Option<i32>, // Utiliser un nom de champ différent de Task.order pour éviter confusion
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+    // Labels associés
+    pub labels: Vec<Label>,
+}
+
+// Helper pour convertir une Task DB en TaskApiResponse (sans labels au début)
+// Les labels seront ajoutés séparément.
+impl From<Task> for TaskApiResponse {
+    fn from(task_db: Task) -> Self {
+        TaskApiResponse {
+            id: task_db.id,
+            user_id: task_db.user_id,
+            project_id: task_db.project_id,
+            title: task_db.title,
+            description: task_db.description,
+            status: task_db.status,
+            due_date: task_db.due_date,
+            task_order: task_db.order, // Mapper depuis Task.order
+            created_at: task_db.created_at,
+            updated_at: task_db.updated_at,
+            labels: Vec::new(), // Initialisé vide, sera peuplé dans le handler
+        }
+    }
+}
+
 #[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = tasks)]
 pub struct NewTask {
-    /* ... comme avant ... */
     pub user_id: Uuid,
     pub project_id: Option<Uuid>,
     pub title: String,
@@ -148,7 +177,6 @@ pub struct NewTask {
 #[derive(AsChangeset, Debug)]
 #[diesel(table_name = tasks)]
 pub struct UpdateTaskChangeset {
-    /* ... comme avant, avec updated_at ... */
     pub project_id: Option<Option<Uuid>>,
     pub title: Option<String>,
     pub description: Option<Option<String>>,
@@ -162,8 +190,8 @@ pub struct UpdateTaskChangeset {
 // --- Label Model ---
 #[derive(Queryable, Selectable, Identifiable, Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[diesel(table_name = labels)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Label {
-    /* ... comme avant ... */
     pub id: Uuid,
     pub user_id: Uuid,
     pub name: String,
@@ -175,7 +203,6 @@ pub struct Label {
 #[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = labels)]
 pub struct NewLabel {
-    /* created_at/updated_at omis car gérés par DB */
     pub user_id: Uuid,
     pub name: String,
     pub color: Option<String>,
@@ -184,7 +211,6 @@ pub struct NewLabel {
 #[derive(AsChangeset, Debug)]
 #[diesel(table_name = labels)]
 pub struct UpdateLabelChangeset {
-    /* ... comme avant, avec updated_at ... */
     pub name: Option<String>,
     pub color: Option<Option<String>>,
     pub updated_at: Option<NaiveDateTime>,
@@ -207,7 +233,6 @@ pub struct UpdateLabelChangeset {
 #[diesel(belongs_to(Label))]
 #[diesel(primary_key(task_id, label_id))]
 pub struct TaskLabel {
-    /* ... comme avant ... */
     pub task_id: Uuid,
     pub label_id: Uuid,
 }
@@ -215,7 +240,6 @@ pub struct TaskLabel {
 #[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = task_labels)]
 pub struct NewTaskLabelAssociation {
-    /* ... comme avant ... */
     pub task_id: Uuid,
     pub label_id: Uuid,
 }
@@ -249,7 +273,6 @@ pub struct TimeEntry {
 #[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = time_entries)]
 pub struct NewTimeEntry {
-    /* created_at/updated_at omis car gérés par DB */
     pub user_id: Uuid,
     pub task_id: Uuid,
     pub start_time: NaiveDateTime,

@@ -1,56 +1,54 @@
-"use client"; // Ce composant utilise des hooks React
+// src/components/projects/AddProjectForm.tsx
+"use client";
 
 import { isApiError } from "@/services/common";
 import { createProject, CreateProjectPayload, Project } from "@/services/projectApi";
-import { useSession } from "next-auth/react"; // Pour obtenir la session
+import { DEFAULT_COLOR_VALUE, PREDEFINED_COLORS } from "@/utils/colors";
+import { useSession } from "next-auth/react";
 import { FormEvent, useState } from "react";
 
 interface AddProjectFormProps {
-    onProjectCreated: (newProject: Project) => void; // Callback pour informer le parent que le projet a été créé
-    onCancel?: () => void; // Callback optionnel pour annuler/fermer le formulaire
+    onProjectCreated: (newProject: Project) => void;
+    onCancel?: () => void;
 }
 
+
 export default function AddProjectForm({ onProjectCreated, onCancel }: AddProjectFormProps) {
-    const { data: session, status: sessionStatus } = useSession(); // Obtenir la session et son statut
+    const { data: session, status: sessionStatus } = useSession();
     const [name, setName] = useState("");
-    const [color, setColor] = useState(""); // Laisser vide pour pas de couleur, ou l'utilisateur entre un hex
+    // Initialiser avec une couleur par défaut ou null si "pas de couleur" est la préférence initiale
+    const [selectedColor, setSelectedColor] = useState<string | null>(DEFAULT_COLOR_VALUE); // Bleu par défaut
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        setError(null); // Réinitialiser l'erreur à chaque soumission
+        setError(null);
 
         if (!name.trim()) {
             setError("Project name is required.");
             return;
         }
-
         if (sessionStatus !== "authenticated" || !session) {
-            setError("User session not available or not authenticated. Please sign in again.");
-            // Optionnel: rediriger ou afficher un message plus proéminent
+            setError("User session not available. Please sign in again.");
             return;
         }
-
         setIsSubmitting(true);
 
         const projectData: CreateProjectPayload = {
             name: name.trim(),
-            // Envoyer null si la couleur est vide, sinon la couleur.
-            // La fonction createProject dans apiClient s'occupera de la transformation undefined -> null
-            color: color.trim() === "" ? null : color.trim(),
+            color: selectedColor, // `selectedColor` est déjà string | null
         };
 
-        const result = await createProject(session, projectData); // Utiliser la fonction de apiClient
+        const result = await createProject(session, projectData);
 
-        if (isApiError(result)) { // Utiliser le type guard
+        if (isApiError(result)) {
             setError(result.message || "Failed to create project. Please try again.");
-        } else { // Succès, result est de type Project
-            onProjectCreated(result); // Informer le parent
-            setName(""); // Réinitialiser le formulaire
-            setColor("");
-            // Si onCancel est fourni, on peut l'appeler ici, par exemple
-            // if (onCancel) onCancel();
+        } else {
+            onProjectCreated(result);
+            setName("");
+            setSelectedColor(DEFAULT_COLOR_VALUE); // Réinitialiser à la couleur par défaut
+            // if (onCancel) onCancel(); // Dépend si vous voulez fermer automatiquement
         }
         setIsSubmitting(false);
     };
@@ -82,22 +80,40 @@ export default function AddProjectForm({ onProjectCreated, onCancel }: AddProjec
             </div>
 
             <div>
-                <label htmlFor="projectColor" className="block text-sm font-medium text-gray-700 mb-1">
-                    Color <span className="text-xs text-gray-500">(optional, e.g., #FF5733 or lightblue)</span>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Color <span className="text-xs text-gray-500">(optional)</span>
                 </label>
-                <div className="flex items-center space-x-2">
-                    <input
-                        type="text"
-                        id="projectColor"
-                        value={color}
-                        onChange={(e) => setColor(e.target.value)}
-                        className="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:bg-gray-50"
-                        placeholder="#HexColor or CSS color name"
+                <div className="flex flex-wrap gap-2 items-center">
+                    {PREDEFINED_COLORS.map((colorOption) => (
+                        <button
+                            type="button"
+                            key={colorOption.value}
+                            title={colorOption.name}
+                            onClick={() => setSelectedColor(colorOption.value)}
+                            className={`w-7 h-7 rounded-full border-2 transition-all duration-150 ease-in-out 
+                                        ${selectedColor === colorOption.value
+                                    ? 'ring-2 ring-offset-1 ring-blue-500 border-blue-500 scale-110'
+                                    : 'border-gray-300 hover:border-gray-400'
+                                }`}
+                            style={{ backgroundColor: colorOption.value }}
+                            disabled={isSubmitting || sessionStatus !== "authenticated"}
+                        />
+                    ))}
+                    <button // Bouton pour "pas de couleur"
+                        type="button"
+                        title="No Color"
+                        onClick={() => setSelectedColor(null)}
+                        className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-gray-400
+                                    transition-all duration-150 ease-in-out
+                                    ${selectedColor === null
+                                ? 'ring-2 ring-offset-1 ring-blue-500 bg-gray-100 border-blue-500 scale-110'
+                                : 'border-gray-300 hover:border-gray-400 bg-white'
+                            }`}
                         disabled={isSubmitting || sessionStatus !== "authenticated"}
-                    />
-                    {color.trim() !== "" && (
-                        <span className="w-6 h-6 rounded-full border border-gray-300 inline-block" style={{ backgroundColor: color }}></span>
-                    )}
+                        aria-label="No color"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
                 </div>
             </div>
 
