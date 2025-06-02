@@ -2,10 +2,12 @@
 "use client";
 
 import { isApiError } from "@/services/common";
-import { Label, updateLabel, UpdateLabelData } from "@/services/labelApi"; // UpdateLabelData pour le payload
+import { updateLabel } from "@/services/labelApi"; // UpdateLabelData pour le payload
+import { Label, UpdateLabelData } from "@/services/types";
 import { DEFAULT_NO_COLOR_VALUE, PREDEFINED_COLORS } from "@/utils/colors";
 import { useSession } from "next-auth/react";
 import { FormEvent, useEffect, useState } from "react";
+import { Modal } from "../ui/Modal";
 
 
 interface EditLabelFormProps {
@@ -66,15 +68,13 @@ export default function EditLabelForm({ labelToEdit, onLabelUpdated, onCancel }:
     };
 
     return (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-60 overflow-y-auto h-full w-full flex items-center justify-center z-[60] p-4">
-            <form onSubmit={handleSubmit} className="relative w-full max-w-sm space-y-4 p-5 bg-white rounded-lg shadow-xl">
-                <div className="flex justify-between items-center border-b pb-2">
-                    <h3 className="text-lg font-semibold text-gray-800">Edit Label</h3>
-                    <button type="button" onClick={onCancel} className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                </div>
-
+        <Modal
+            isOpen={true}
+            onClose={onCancel}
+            title="Edit Label"
+            size="md"
+        >
+            <form onSubmit={handleSubmit} className="space-y-4">
                 {error && <p className="text-sm text-red-600 bg-red-100 p-2 rounded">{error}</p>}
 
                 <div>
@@ -120,6 +120,6 @@ export default function EditLabelForm({ labelToEdit, onLabelUpdated, onCancel }:
                     </button>
                 </div>
             </form>
-        </div>
+        </Modal>
     );
 }

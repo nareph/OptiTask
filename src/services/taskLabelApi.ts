@@ -1,7 +1,7 @@
 // src/services/taskLabelApi.ts
 import { Session } from "next-auth";
 import { ApiError, apiRequest } from "./common";
-import { DeleteSuccessResponse, Label } from "./labelApi";
+import { DeleteSuccessResponse, Label } from "./types";
 
 
 interface AddLabelToTaskResponse { // Ce que le backend retourne pour POST /tasks/{id}/labels

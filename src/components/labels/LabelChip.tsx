@@ -1,5 +1,6 @@
 // src/components/labels/LabelChip.tsx
-import { Label } from "@/services/labelApi"; // S'assurer que l'import est correct
+
+import { Label } from "@/services/types";
 
 interface LabelChipProps {
     label: Label;

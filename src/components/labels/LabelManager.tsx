@@ -3,8 +3,9 @@
 "use client";
 
 import { isApiError } from "@/services/common";
-import { createLabel, deleteLabel, Label, updateLabel } // Importer createLabel, updateLabel
+import { createLabel, deleteLabel, updateLabel } // Importer createLabel, updateLabel
     from "@/services/labelApi";
+import { Label } from "@/services/types";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 import AddLabelForm from "./AddLabelForm";

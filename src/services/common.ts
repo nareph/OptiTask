@@ -1,5 +1,4 @@
 import { Session } from "next-auth";
-
 export const API_BASE_URL = '/api/rust';
 
 export interface ApiError {

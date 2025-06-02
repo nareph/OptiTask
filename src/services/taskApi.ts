@@ -1,58 +1,15 @@
 // src/services/taskApi.ts
 import { Session } from "next-auth";
 import { ApiError, apiRequest } from "./common";
-import { DeleteSuccessResponse, Label } from "./labelApi"; // Importer Label car TaskApiResponse l'utilise
+import { CreateTaskPayload, DeleteSuccessResponse, FetchTasksFilters, TaskWithLabels, UpdateTaskData } from "./types";
 
-// --- INTERFACES SPÉCIFIQUES AUX TÂCHES ---
-
-// C'est ce que le backend retourne (Task avec ses labels)
-// Correspond à TaskApiResponse dans Rust
-export interface TaskWithLabels {
-  id: string;
-  user_id: string;
-  project_id: string | null;
-  title: string;
-  description: string | null;
-  status: string;
-  due_date: string | null;
-  order: number | null;
-  created_at: string;
-  updated_at: string;
-  labels: Label[]; // Labels associés
-}
-
-export interface CreateTaskPayload {
+interface BackendUpdateTaskPayload {
   project_id?: string | null;
-  title: string;
+  title?: string;
   description?: string | null;
   status?: string;
   due_date?: string | null;
   order?: number | null;
-  // Note: Les labels ne sont pas ajoutés à la création ici, mais via taskLabelApi
-}
-
-export interface UpdateTaskData {
-  project_id?: string | null | undefined;
-  title?: string;
-  description?: string | null | undefined;
-  status?: string;
-  due_date?: string | null | undefined;
-  order?: number | null | undefined;
-  // Les labels sont gérés séparément via taskLabelApi
-}
-
-interface BackendUpdateTaskPayload {
-    project_id?: string | null;
-    title?: string;
-    description?: string | null;
-    status?: string;
-    due_date?: string | null;
-    order?: number | null;
-}
-
-export interface FetchTasksFilters {
-    project_id?: string;
-    status?: string;
 }
 
 // --- FONCTIONS API POUR LES TÂCHES ---

@@ -2,7 +2,8 @@
 "use client";
 
 import { isApiError } from "@/services/common";
-import { createLabel, CreateLabelPayload, Label } from "@/services/labelApi";
+import { createLabel } from "@/services/labelApi";
+import { CreateLabelPayload, Label } from "@/services/types";
 import { DEFAULT_COLOR_VALUE, PREDEFINED_COLORS } from "@/utils/colors";
 import { useSession } from "next-auth/react";
 import { FormEvent, useState } from "react";

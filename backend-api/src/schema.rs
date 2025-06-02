@@ -58,6 +58,18 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    users (id) {
+        id -> Int4,
+        username -> Varchar,
+        seed -> Varchar,
+        channel_address -> Varchar,
+        last_message -> Varchar,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
 diesel::joinable!(task_labels -> labels (label_id));
 diesel::joinable!(task_labels -> tasks (task_id));
 diesel::joinable!(tasks -> projects (project_id));
@@ -69,4 +81,5 @@ diesel::allow_tables_to_appear_in_same_query!(
     task_labels,
     tasks,
     time_entries,
+    users,
 );

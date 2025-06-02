@@ -1,26 +1,8 @@
 import { Session } from "next-auth";
 import { ApiError, apiRequest, isApiError } from "./common"; // Importer depuis common.ts
+import { CreateProjectPayload, Project, UpdateProjectData } from "./types";
 
 // --- INTERFACES SPÉCIFIQUES AUX PROJETS ---
-export interface Project {
-  id: string;
-  user_id: string;
-  name: string;
-  color: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateProjectPayload {
-  name: string;
-  color?: string | null;
-}
-
-export interface UpdateProjectData {
-  name?: string;
-  color?: string | null;
-}
-
 interface BackendUpdateProjectPayload { // Interne à ce module si nécessaire
     name?: string;
     color?: string | null;

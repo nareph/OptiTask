@@ -1,14 +1,14 @@
 // src/app/dashboard/page.tsx
 "use client";
 
-import LabelManager from "@/components/labels/LabelManager";
-import ProjectList from "@/components/projects/ProjectList";
-import TaskList from "@/components/tasks/TaskList";
+import ProjectsView from "@/components/projects/ProjectsView";
 import { isApiError } from "@/services/common";
-import { Label, fetchLabels } from "@/services/labelApi";
-import { Project, fetchProjects } from "@/services/projectApi";
+import { fetchLabels } from "@/services/labelApi";
+import { fetchProjects } from "@/services/projectApi";
+import { Label, Project } from "@/services/types";
 import { signOut, useSession } from "next-auth/react";
 import Image from 'next/image';
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react"; // useRef ajouté
 
 const RefreshIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m-15.357-2a8.001 8.001 0 0015.357 2M15 15h-4.581"></path></svg>;
@@ -19,8 +19,8 @@ export default function DashboardPage() {
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [allUserLabels, setAllUserLabels] = useState<Label[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [projectNameForFilter, setProjectNameForFilter] = useState<string | null>(null);
+  //const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  //const [projectNameForFilter, setProjectNameForFilter] = useState<string | null>(null);
   const [isLoadingGlobalData, setIsLoadingGlobalData] = useState(true);
   const [globalError, setGlobalError] = useState<string | null>(null);
 
@@ -114,8 +114,8 @@ export default function DashboardPage() {
       setProjects([]); setAllUserLabels([]);
       if (isLoadingGlobalData) setIsLoadingGlobalData(false); // S'assurer que le chargement s'arrête
       setGlobalError(null);
-      setSelectedProjectId(null);
-      setProjectNameForFilter(null);
+      // setSelectedProjectId(null);
+      // setProjectNameForFilter(null);
       loadedSessionUserIdRef.current = null; // Marquer comme déconnecté
     }
   }, [sessionStatus, session, loadGlobalData, isLoadingGlobalData]); // Ajouter isLoadingGlobalData pour éviter des appels si déjà en chargement
@@ -134,16 +134,16 @@ export default function DashboardPage() {
     );
   }, []); // Pas de dépendances, car met à jour l'état localement
 
-  const handleProjectSelect = (projectId: string | null) => {
-    console.log("DashboardPage: handleProjectSelect called with projectId:", projectId);
-    setSelectedProjectId(projectId);
-    if (projectId) {
-      const selectedProject = projects.find(p => p.id === projectId);
-      setProjectNameForFilter(selectedProject ? selectedProject.name : null);
-    } else {
-      setProjectNameForFilter(null);
-    }
-  };
+  /*   const handleProjectSelect = (projectId: string | null) => {
+      console.log("DashboardPage: handleProjectSelect called with projectId:", projectId);
+      setSelectedProjectId(projectId);
+      if (projectId) {
+        const selectedProject = projects.find(p => p.id === projectId);
+        setProjectNameForFilter(selectedProject ? selectedProject.name : null);
+      } else {
+        setProjectNameForFilter(null);
+      }
+    }; */
 
   if (sessionStatus === "loading") {
     console.log("DashboardPage: Rendering 'Initializing session...'");
@@ -151,7 +151,7 @@ export default function DashboardPage() {
   }
   if (!session && sessionStatus === "unauthenticated") {
     console.log("DashboardPage: Rendering 'Access Denied' (should be handled by middleware ideally)");
-    return (<div className="flex flex-col items-center justify-center min-h-screen bg-gray-100"><div className="p-8 bg-white shadow-xl rounded-lg text-center"><h1 className="text-2xl font-bold mb-4 text-red-600">Access Denied</h1><p className="text-gray-700">Please sign in to view the dashboard.</p><a href="/api/auth/signin" className="mt-6 inline-block px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">Sign In</a></div></div>);
+    return (<div className="flex flex-col items-center justify-center min-h-screen bg-gray-100"><div className="p-8 bg-white shadow-xl rounded-lg text-center"><h1 className="text-2xl font-bold mb-4 text-red-600">Access Denied</h1><p className="text-gray-700">Please sign in to view the dashboard.</p><Link href="/api/auth/signin" className="mt-6 inline-block px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">Sign In</Link></div></div>);
   }
   if (!session) { // Sécurité supplémentaire
     console.log("DashboardPage: Rendering null (session is null after status checks)");
@@ -196,48 +196,22 @@ export default function DashboardPage() {
       <main className="py-6">
         <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
           {globalError && (
-            <div className="mb-4 p-3 bg-red-50 text-red-700 border border-red-200 rounded-md text-sm whitespace-pre-line">
-              Error: <br /> {globalError.split('\n').map((line, i) => <span key={i}>{line}<br /></span>)}
+            <div className="mb-4 p-3 bg-red-50 text-red-700 border border-red-200 rounded-md text-sm">
+              Error: {globalError}
             </div>
           )}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-4 xl:col-span-3 space-y-6">
-              <div className="p-4 bg-white shadow-md rounded-lg">
-                <ProjectList
-                  projects={projects}
-                  isLoading={isLoadingGlobalData}
-                  error={globalError}
-                  onDataChanged={handleDataChanged}
-                  onProjectSelect={handleProjectSelect}
-                  selectedProjectId={selectedProjectId}
-                />
-              </div>
-              <div className="p-4 bg-white shadow-md rounded-lg">
-                <LabelManager
-                  allUserLabels={allUserLabels}
-                  isLoadingLabels={isLoadingGlobalData} // Note: renommé de isLoadingLabels en isLoadingGlobalData pour la prop
-                  labelsError={globalError}
-                  onDataChanged={handleDataChanged}
-                />
-              </div>
-            </div>
 
-            <div className="lg:col-span-8 xl:col-span-9">
-              <div className="p-4 bg-white shadow-md rounded-lg">
-                <TaskList
-                  projectIdForFilter={selectedProjectId}
-                  projectNameForFilter={projectNameForFilter}
-                  projectsForForms={projects}
-                  allUserLabelsForForms={allUserLabels}
-                  onTasksDataChanged={handleDataChanged}
-                  onLabelCreatedInTaskForm={handleLabelCreatedInTaskForm}
-                  areParentResourcesLoading={isLoadingGlobalData}
-                />
-              </div>
-            </div>
-          </div>
+          <ProjectsView
+            projects={projects}
+            allUserLabels={allUserLabels}
+            onDataChanged={handleDataChanged}
+            onLabelCreated={handleLabelCreatedInTaskForm}
+            isLoading={isLoadingGlobalData}
+            error={globalError}
+          />
         </div>
       </main>
     </div>
+
   );
 }

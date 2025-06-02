@@ -2,18 +2,18 @@
 "use client";
 
 import { apiRequest, isApiError } from "@/services/common";
-import { createLabel, CreateLabelPayload, Label } from "@/services/labelApi"; // createLabel et CreateLabelPayload sont nécessaires
-import { Project } from "@/services/projectApi";
-import { TaskWithLabels, updateTask, UpdateTaskData } from "@/services/taskApi";
+import { createLabel } from "@/services/labelApi"; // createLabel et CreateLabelPayload sont nécessaires
+import { updateTask } from "@/services/taskApi";
 import { addLabelToTask, removeLabelFromTask } from "@/services/taskLabelApi";
+import { CreateLabelPayload, Label, Project, TaskWithLabels, UpdateTaskData } from "@/services/types";
 import { useSession } from "next-auth/react";
 import { FormEvent, useEffect, useState } from "react";
 // Importez CreatableSelect au lieu de Select
 import { GroupBase, MultiValue, StylesConfig } from 'react-select';
 import makeAnimated from 'react-select/animated';
 import CreatableSelect from 'react-select/creatable';
+import { Modal } from "../ui/Modal";
 
-const CloseIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>;
 
 interface EditTaskFormProps {
     taskToEdit: TaskWithLabels;
@@ -198,14 +198,13 @@ export default function EditTaskForm({
 
 
     return (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-50 p-4">
-            <form onSubmit={handleSubmit} className="relative w-full max-w-lg space-y-3 p-6 bg-white rounded-xl shadow-2xl">
-                <div className="flex justify-between items-center border-b pb-3 mb-4">
-                    <h3 className="text-xl font-semibold text-gray-800">Edit Task</h3>
-                    <button type="button" onClick={onCancel} className="p-1 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100">
-                        <CloseIcon />
-                    </button>
-                </div>
+        <Modal
+            isOpen={true}
+            onClose={onCancel}
+            title="Edit Task"
+            size="lg"
+        >
+            <form onSubmit={handleSubmit} className="space-y-4">
                 {error && <p className="text-sm text-red-600 bg-red-100 p-3 rounded-md border border-red-300">{error}</p>}
 
                 {/* Champs du formulaire (title, description, project, status, dueDate) - inchangés */}
@@ -283,6 +282,6 @@ export default function EditTaskForm({
                     </button>
                 </div>
             </form>
-        </div>
+        </Modal>
     );
 }

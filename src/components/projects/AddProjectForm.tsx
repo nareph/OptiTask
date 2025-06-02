@@ -2,7 +2,8 @@
 "use client";
 
 import { isApiError } from "@/services/common";
-import { createProject, CreateProjectPayload, Project } from "@/services/projectApi";
+import { createProject } from "@/services/projectApi";
+import { CreateProjectPayload, Project } from "@/services/types";
 import { DEFAULT_COLOR_VALUE, PREDEFINED_COLORS } from "@/utils/colors";
 import { useSession } from "next-auth/react";
 import { FormEvent, useState } from "react";

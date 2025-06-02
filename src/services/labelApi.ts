@@ -1,35 +1,12 @@
 // src/services/labelApi.ts
 import { Session } from "next-auth";
 import { ApiError, apiRequest } from "./common";
+import { CreateLabelPayload, DeleteSuccessResponse, Label, UpdateLabelData } from "./types";
 
-// --- INTERFACES SPÉCIFIQUES AUX LABELS ---
-export interface Label {
-  id: string;
-  user_id: string;
-  name: string;
-  color: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateLabelPayload {
-  name: string;
-  color?: string | null;
-}
-
-export interface UpdateLabelData {
-  name?: string;
-  color?: string | null | undefined;
-}
 
 interface BackendUpdateLabelPayload {
     name?: string;
     color?: string | null;
-}
-
-export interface DeleteSuccessResponse { // Exporté pour être utilisé par d'autres modules si besoin
-    status: "success";
-    message: string;
 }
 
 // --- FONCTIONS API POUR LES LABELS ---
