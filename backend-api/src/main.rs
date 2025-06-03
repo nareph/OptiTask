@@ -118,6 +118,11 @@ async fn main() -> std::io::Result<()> {
                     .service(handlers::time_entry_handlers::update_time_entry_handler)
                     .service(handlers::time_entry_handlers::delete_time_entry_handler),
             )
+            .service(
+                web::scope("/analytics") 
+                    .service(handlers::analytics_handlers::get_time_by_project_handler)
+                    .service(handlers::analytics_handlers::get_productivity_trend_handler),
+            )
     })
     .bind(server_address)?
     .run()

@@ -4,6 +4,8 @@ use diesel::prelude::*;
 use serde::{Deserialize, Deserializer, Serialize}; // Deserializer est nécessaire pour deserialize_with
 use uuid::Uuid;
 
+use diesel::sql_types::BigInt; // Pour les sommes de durées
+
 // --- Fonctions Helper pour la Désérialisation des Champs Optionnels/Nullables ---
 
 // Pour Option<Option<String>>
@@ -399,4 +401,37 @@ pub struct PaginatedResponse<T> {
     pub total_pages: i64,
     pub page: i64,
     pub per_page: i64,
+}
+
+// --- Analytics Models ---
+
+#[derive(QueryableByName, Serialize, Deserialize, Debug, Clone)] // QueryableByName si on utilise du SQL brut
+#[diesel(check_for_backend(diesel::pg::Pg))] // Nécessaire pour QueryableByName avec un backend spécifique
+pub struct TimeByProjectStat {
+    #[diesel(sql_type = diesel::sql_types::Uuid)] // Spécifier le type SQL pour QueryableByName
+    pub project_id: Uuid,
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    pub project_name: String,
+    // Diesel sum sur i32 retourne i64 (BigInt). Optionnel si certains projets n'ont pas de temps.
+    #[diesel(sql_type = BigInt)] // Diesel sum sur i32/Option<i32> retourne BigInt/Option<BigInt>
+    pub total_duration_seconds: i64, // Stocker en i64 car la somme peut dépasser i32
+}
+
+#[derive(QueryableByName, Serialize, Deserialize, Debug, Clone)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct ProductivityTrendPoint {
+    #[diesel(sql_type = diesel::sql_types::Date)]
+    // Ou Timestamptz si vous groupez par heure/jour exact
+    pub date_point: NaiveDate, // Représente le jour ou le début de la semaine/mois
+    #[diesel(sql_type = BigInt)]
+    pub total_duration_seconds: i64,
+}
+
+// DTO pour les paramètres de requête des analytics
+#[derive(Deserialize, Debug)]
+pub struct AnalyticsQueryPeriod {
+    // Ex: "week", "month", "last7days", "last30days", ou des dates spécifiques
+    pub period: Option<String>,
+    pub start_date: Option<NaiveDate>, // YYYY-MM-DD
+    pub end_date: Option<NaiveDate>,   // YYYY-MM-DD
 }

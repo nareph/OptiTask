@@ -4,4 +4,4 @@ pub mod project_handlers;
 pub mod task_handlers;
 pub mod task_label_handlers;
 pub mod time_entry_handlers;
-// pub mod task_label_handlers; // Quand vous l'ajouterez
+pub mod analytics_handlers;
