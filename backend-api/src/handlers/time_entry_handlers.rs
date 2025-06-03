@@ -212,7 +212,7 @@ pub async fn update_time_entry_handler(
     let entry_id_clone_for_fetch = entry_to_update_id; // Uuid est Copy
     let user_id_clone_for_fetch = user_uuid; // Uuid est Copy
 
-    let current_entry_start_time = web::block(move || {
+    let current_entry_start_time_naive = web::block(move || {
         let mut conn = pool_clone_for_fetch.get().map_err(ServiceError::from)?;
         time_entries
             .filter(id.eq(entry_id_clone_for_fetch))
@@ -237,17 +237,23 @@ pub async fn update_time_entry_handler(
     })??;
 
     let mut changeset_duration = payload.duration_seconds.clone(); // payload.duration_seconds est Option<Option<i32>>
-    if let Some(Some(end_t)) = payload.end_time {
+
+    // Conversion pour la comparaison et le calcul de durée
+    if let Some(Some(end_t_utc)) = payload.end_time {
+        // end_t_utc est DateTime<Utc>
+        let end_t_naive = end_t_utc.naive_utc(); // Convertir en NaiveDateTime pour la comparaison
         if changeset_duration.is_none() || changeset_duration == Some(None) {
-            if end_t > current_entry_start_time {
-                changeset_duration =
-                    Some(Some((end_t - current_entry_start_time).num_seconds() as i32));
+            // Comparer deux NaiveDateTime
+            if end_t_naive > current_entry_start_time_naive {
+                changeset_duration = Some(Some(
+                    (end_t_naive - current_entry_start_time_naive).num_seconds() as i32,
+                ));
             }
         }
     }
 
     let entry_changes = UpdateTimeEntryChangeset {
-        start_time: payload.start_time, // payload.start_time est Option<NaiveDateTime>
+        start_time: payload.start_time, // payload.start_time est Option<DateTime<Utc>>
         end_time: payload.end_time.clone(),
         duration_seconds: changeset_duration,
         is_pomodoro_session: payload.is_pomodoro_session,

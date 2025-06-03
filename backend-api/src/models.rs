@@ -1,5 +1,5 @@
 use crate::schema::{labels, projects, task_labels, tasks, time_entries};
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Deserializer, Serialize}; // Deserializer est nécessaire pour deserialize_with
 use uuid::Uuid;
@@ -66,6 +66,22 @@ where
     match Option::<NaiveDateTime>::deserialize(deserializer) {
         Ok(Some(dt)) => Ok(Some(Some(dt))),
         Ok(None) => Ok(Some(None)),
+        Err(e) => Err(e),
+    }
+}
+
+// NOUVELLE FONCTION HELPER pour Option<Option<DateTime<Utc>>>
+fn deserialize_opt_opt_datetime_utc<'de, D>(
+    deserializer: D,
+) -> Result<Option<Option<DateTime<Utc>>>, D::Error>
+// <<< Notez DateTime<Utc> ici
+where
+    D: Deserializer<'de>,
+{
+    match Option::<DateTime<Utc>>::deserialize(deserializer) {
+        // <<< Et ici
+        Ok(Some(dt)) => Ok(Some(Some(dt))),
+        Ok(None) => Ok(Some(None)), // JSON null -> Some(None)
         Err(e) => Err(e),
     }
 }
@@ -262,8 +278,8 @@ pub struct TimeEntry {
     pub id: Uuid,
     pub user_id: Uuid,
     pub task_id: Uuid,
-    pub start_time: NaiveDateTime,
-    pub end_time: Option<NaiveDateTime>,
+    pub start_time: DateTime<Utc>,
+    pub end_time: Option<DateTime<Utc>>,
     pub duration_seconds: Option<i32>,
     pub is_pomodoro_session: bool,
     pub created_at: NaiveDateTime,
@@ -275,8 +291,8 @@ pub struct TimeEntry {
 pub struct NewTimeEntry {
     pub user_id: Uuid,
     pub task_id: Uuid,
-    pub start_time: NaiveDateTime,
-    pub end_time: Option<NaiveDateTime>,
+    pub start_time: DateTime<Utc>,
+    pub end_time: Option<DateTime<Utc>>,
     pub duration_seconds: Option<i32>,
     pub is_pomodoro_session: Option<bool>,
 }
@@ -284,8 +300,8 @@ pub struct NewTimeEntry {
 #[derive(AsChangeset, Debug)]
 #[diesel(table_name = time_entries)]
 pub struct UpdateTimeEntryChangeset {
-    pub start_time: Option<NaiveDateTime>,
-    pub end_time: Option<Option<NaiveDateTime>>,
+    pub start_time: Option<DateTime<Utc>>,
+    pub end_time: Option<Option<DateTime<Utc>>>,
     pub duration_seconds: Option<Option<i32>>,
     pub is_pomodoro_session: Option<bool>,
     pub updated_at: Option<NaiveDateTime>,
@@ -346,17 +362,17 @@ pub struct UpdateLabelPayload {
 #[derive(Deserialize, Debug)]
 pub struct CreateTimeEntryPayload {
     pub task_id: Uuid,
-    pub start_time: NaiveDateTime,
-    pub end_time: Option<NaiveDateTime>,
+    pub start_time: DateTime<Utc>,
+    pub end_time: Option<DateTime<Utc>>,
     pub duration_seconds: Option<i32>,
     pub is_pomodoro_session: Option<bool>,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct UpdateTimeEntryPayload {
-    pub start_time: Option<NaiveDateTime>, // Pourrait être Option<Option<NaiveDateTime>> si on veut le mettre à NULL
-    #[serde(deserialize_with = "deserialize_opt_opt_naivedatetime", default)]
-    pub end_time: Option<Option<NaiveDateTime>>,
+    pub start_time: Option<DateTime<Utc>>, // Pourrait être Option<Option<NaiveDateTime>> si on veut le mettre à NULL
+    #[serde(deserialize_with = "deserialize_opt_opt_datetime_utc", default)]
+    pub end_time: Option<Option<DateTime<Utc>>>,
     #[serde(deserialize_with = "deserialize_opt_opt_i32", default)]
     pub duration_seconds: Option<Option<i32>>,
     pub is_pomodoro_session: Option<bool>, // Boolean ne peut pas vraiment être "absent vs null", juste true/false/absent

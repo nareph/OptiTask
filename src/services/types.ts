@@ -151,6 +151,37 @@ export interface UpdateTaskData {
   order?: number | null | undefined;
 }
 
+export interface TimeEntry {
+  id: string; // UUID
+  user_id: string; // UUID
+  task_id: string; // UUID
+  start_time: string; // ISO 8601 DateTime string (e.g., "2023-10-27T10:00:00Z")
+  end_time: string | null; // ISO 8601 DateTime string or null
+  duration_seconds: number | null;
+  is_pomodoro_session: boolean;
+  created_at: string; // ISO 8601 DateTime string
+  updated_at: string; // ISO 8601 DateTime string
+}
+
+// Correspond à NewTimeEntry dans models.rs (backend) pour la création
+// et CreateTimeEntryPayload pour le frontend
+export interface CreateTimeEntryPayload {
+  task_id: string; // UUID
+  start_time: string; // ISO 8601 DateTime string (sera new Date().toISOString())
+  end_time: string;   // ISO 8601 DateTime string (sera new Date().toISOString())
+  duration_seconds: number;
+  is_pomodoro_session?: boolean; // Optionnel, le backend a un défaut
+}
+
+// Correspond à UpdateTimeEntryPayload (frontend) et UpdateTimeEntryChangeset (backend)
+export interface UpdateTimeEntryData {
+  start_time?: string;
+  end_time?: string | null; // Permet de mettre à null explicitement
+  duration_seconds?: number | null;
+  is_pomodoro_session?: boolean;
+  // updated_at est géré par le backend
+}
+
 /****************************
  * API RESPONSE INTERFACES
  ***************************/
@@ -218,3 +249,4 @@ export type PaginatedResponse<T> = {
   per_page: number;
   total: number;
 };
+

@@ -2,14 +2,22 @@
 mod auth_utils;
 mod db;
 mod error_handler;
-mod handlers; // Déclarez le nouveau module parent 'handlers'
+mod handlers;
 mod models;
 pub mod schema;
 
-use actix_web::{get, web, App, HttpResponse, HttpServer};
+// Ajouts pour JsonConfig
+use actix_web::{
+    error::JsonPayloadError, // Pour le type d'erreur dans le handler
+    get,
+    web,
+    App,
+    HttpResponse,
+    HttpServer,
+};
+
 use db::DbPool;
 
-// ... (health_check function) ...
 #[get("/health")]
 async fn health_check(
     pool: web::Data<DbPool>,
@@ -37,9 +45,42 @@ async fn main() -> std::io::Result<()> {
     log::info!("🚀 OptiTask Backend starting on http://{}", server_address);
 
     HttpServer::new(move || {
+        // DÉBUT DE L'AJOUT/MODIFICATION POUR JSONCONFIG
+        let json_config = web::JsonConfig::default()
+            .limit(4096) // Exemple de limite de taille
+            .error_handler(|err: JsonPayloadError, _req| {
+                // Log détaillé côté serveur
+                log::error!("JSON Payload Deserialization Error: {:?}", err);
+
+                let error_description = match &err {
+                    JsonPayloadError::Deserialize(serde_err) => {
+                        format!("Invalid JSON format: {}", serde_err)
+                    }
+                    JsonPayloadError::OverflowKnownLength { length, limit } => {
+                        format!("JSON payload (size: {}) exceeds limit ({})", length, limit)
+                    }
+                    JsonPayloadError::Overflow { limit } => {
+                        format!("JSON payload exceeds limit ({})", limit)
+                    }
+                    JsonPayloadError::ContentType => {
+                        "Invalid Content-Type header. Expected 'application/json'.".to_string()
+                    }
+                    JsonPayloadError::Payload(payload_err) => {
+                        format!("Error reading payload: {}", payload_err)
+                    }
+                    _ => "Unknown JSON payload error.".to_string(),
+                };
+
+                // Utiliser votre ServiceError pour formater la réponse
+                let service_error = error_handler::ServiceError::BadRequest(error_description);
+                service_error.into() // Cela retourne une HttpResponse JSON
+            });
+        // FIN DE L'AJOUT/MODIFICATION POUR JSONCONFIG
+
         App::new()
             .wrap(actix_web::middleware::Logger::default())
             .app_data(web::Data::new(pool.clone()))
+            .app_data(json_config) // <--- ENREGISTRER LA CONFIGURATION JSON PERSONNALISÉE
             .service(health_check)
             .service(
                 web::scope("/projects")

@@ -23,6 +23,12 @@ export function isApiError(obj: unknown): obj is ApiError {
   return false;
 }
 
+export interface ApiResponseWithMessage {
+    status: "success";
+    message: string;
+    // Vous pouvez ajouter d'autres champs si votre backend les retourne pour les succès de suppression
+}
+
 // Fonction helper générique pour les requêtes fetch
 interface FetchOptions extends RequestInit {
     userId?: string | null; // Pour ajouter X-User-Id
@@ -49,6 +55,7 @@ export async function apiRequest<TSuccessResponse>(
     }
 
     try {
+        console.log("apiRequest: Sending body:", options.body); 
         response = await fetch(`${API_BASE_URL}${endpoint}`, {
             ...options,
             headers: finalHeaders, // Passer l'objet Headers construit
