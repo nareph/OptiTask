@@ -182,6 +182,25 @@ export interface UpdateTimeEntryData {
   // updated_at est géré par le backend
 }
 
+// Types pour les réponses du backend (doivent correspondre aux structs Rust)
+export interface TimeByProjectStat {
+  project_id: string; // Uuid
+  project_name: string;
+  total_duration_seconds: number; // Reçu comme i64 de Rust, sera number en JS/TS
+}
+
+export interface ProductivityTrendPoint {
+  date_point: string; // NaiveDate de Rust, sera une chaîne YYYY-MM-DD
+  total_duration_seconds: number; // i64 de Rust, number en JS/TS
+}
+
+// Type pour les paramètres de requête
+export interface AnalyticsQueryArgs {
+  period?: 'this_week' | 'last_7_days' | 'this_month' | 'last_30_days' | 'custom';
+  start_date?: string; // YYYY-MM-DD
+  end_date?: string;   // YYYY-MM-DD
+}
+
 /****************************
  * API RESPONSE INTERFACES
  ***************************/

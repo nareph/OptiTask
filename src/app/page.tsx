@@ -1,17 +1,20 @@
-// src/app/dashboard/page.tsx
+// src/app/page.tsx
 "use client";
 
+import AnalyticsView from "@/components/analytics/AnalyticsView";
 import ProjectsView from "@/components/projects/ProjectsView";
+import { RefreshIcon } from "@/components/ui/Icons";
 import { isApiError } from "@/services/common";
 import { fetchLabels } from "@/services/labelApi";
 import { fetchProjects } from "@/services/projectApi";
 import { Label, Project } from "@/services/types";
+import { Tab } from "@headlessui/react";
 import { signOut, useSession } from "next-auth/react";
 import Image from 'next/image';
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react"; // useRef ajouté
+import { useCallback, useEffect, useRef, useState } from "react";
 
-const RefreshIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m-15.357-2a8.001 8.001 0 0015.357 2M15 15h-4.581"></path></svg>;
+//const RefreshIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m-15.357-2a8.001 8.001 0 0015.357 2M15 15h-4.581"></path></svg>;
 
 export default function DashboardPage() {
   const { data: session, status: sessionStatus } = useSession();
@@ -201,17 +204,45 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <ProjectsView
-            projects={projects}
-            allUserLabels={allUserLabels}
-            onDataChanged={handleDataChanged}
-            onLabelCreated={handleLabelCreatedInTaskForm}
-            isLoading={isLoadingGlobalData}
-            error={globalError}
-          />
+          <Tab.Group>
+            <Tab.List className="flex space-x-1 rounded-lg bg-blue-900/20 p-1 mb-6">
+              <Tab
+                className={({ selected }) =>
+                  `w-full rounded-lg py-2.5 text-sm font-medium leading-5 text-blue-700
+                   ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2
+                   ${selected ? 'bg-white shadow' : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'}`
+                }
+              >
+                Projects
+              </Tab>
+              <Tab
+                className={({ selected }) =>
+                  `w-full rounded-lg py-2.5 text-sm font-medium leading-5 text-blue-700
+                   ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2
+                   ${selected ? 'bg-white shadow' : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'}`
+                }
+              >
+                Analytics
+              </Tab>
+            </Tab.List>
+            <Tab.Panels className="mt-2">
+              <Tab.Panel>
+                <ProjectsView
+                  projects={projects}
+                  allUserLabels={allUserLabels}
+                  onDataChanged={handleDataChanged}
+                  onLabelCreated={handleLabelCreatedInTaskForm}
+                  isLoading={isLoadingGlobalData}
+                  error={globalError}
+                />
+              </Tab.Panel>
+              <Tab.Panel>
+                <AnalyticsView session={session} />
+              </Tab.Panel>
+            </Tab.Panels>
+          </Tab.Group>
         </div>
       </main>
     </div>
-
   );
 }
