@@ -1,133 +1,164 @@
-import NextAuth, { AuthOptions } from "next-auth";
+// src/app/api/auth/[...nextauth]/route.ts
+import NextAuth, { Account, AuthOptions, User as NextAuthUser, Profile, Session } from "next-auth";
+import { JWT } from "next-auth/jwt"; // JWT sera notre type étendu grâce à next-auth.d.ts
 import GitHubProvider, { GithubProfile } from "next-auth/providers/github";
 import GoogleProvider, { GoogleProfile } from "next-auth/providers/google";
 import { v5 as uuidv5 } from 'uuid';
 
-// --- CONFIGURATION UUID NAMESPACE ---
-// !!! IMPORTANT: Générez VOTRE PROPRE UUID v4 une fois et mettez-le ici. !!!
-// !!! NE PAS CHANGER CET UUID une fois que des utilisateurs ont des données. !!!
 const MY_APP_NAMESPACE = 'b5a0278f-7a52-4c76-b640-2de2f346deaa';
-// --- FIN CONFIGURATION UUID NAMESPACE ---
 
+// Vérification des variables d'environnement (inchangée)
+if (!process.env.GOOGLE_CLIENT_ID) throw new Error("Missing GOOGLE_CLIENT_ID");
+if (!process.env.GOOGLE_CLIENT_SECRET) throw new Error("Missing GOOGLE_CLIENT_SECRET");
+if (!process.env.GITHUB_CLIENT_ID) throw new Error("Missing GITHUB_CLIENT_ID");
+if (!process.env.GITHUB_CLIENT_SECRET) throw new Error("Missing GITHUB_CLIENT_SECRET");
+if (!process.env.NEXTAUTH_SECRET && process.env.NODE_ENV === 'production') throw new Error("Missing NEXTAUTH_SECRET for production");
+if (!process.env.NEXTAUTH_URL && process.env.NODE_ENV === 'production') console.warn("\x1b[33mwarn\x1b[0m - [NextAuth] Missing NEXTAUTH_URL for production.");
 
-// Vérification des variables d'environnement au démarrage
-if (!process.env.GOOGLE_CLIENT_ID) {
-  throw new Error("Missing GOOGLE_CLIENT_ID environment variable");
-}
-if (!process.env.GOOGLE_CLIENT_SECRET) {
-  throw new Error("Missing GOOGLE_CLIENT_SECRET environment variable");
-}
-if (!process.env.GITHUB_CLIENT_ID) {
-  throw new Error("Missing GITHUB_CLIENT_ID environment variable");
-}
-if (!process.env.GITHUB_CLIENT_SECRET) {
-  throw new Error("Missing GITHUB_CLIENT_SECRET environment variable");
-}
-if (!process.env.NEXTAUTH_SECRET && process.env.NODE_ENV === 'production') {
-  throw new Error("Missing NEXTAUTH_SECRET environment variable for production");
-}
-if (!process.env.NEXTAUTH_URL && process.env.NODE_ENV === 'production') {
-    console.warn(
-      "\x1b[33mwarn\x1b[0m - [NextAuth] Missing NEXTAUTH_URL environment variable for production. NextAuth.js may not work as expected."
-    );
+async function refreshGoogleAccessToken(token: JWT): Promise<JWT> {
+    console.log("[NextAuth JWT CB] Attempting to refresh Google access token. Current expiry:", token.accessTokenExpires ? new Date(token.accessTokenExpires) : "N/A");
+    try {
+        const response = await fetch("https://oauth2.googleapis.com/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+                client_id: process.env.GOOGLE_CLIENT_ID!,
+                client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+                refresh_token: token.refreshToken!,
+                grant_type: "refresh_token",
+            }),
+        });
+
+        const refreshedTokens = await response.json();
+        if (!response.ok) {
+            console.error("[NextAuth JWT CB] Failed to refresh Google token, response:", refreshedTokens);
+            // Si le refresh token est invalide (ex: révoqué), l'erreur est souvent 'invalid_grant'
+            if (refreshedTokens.error === 'invalid_grant') {
+                console.warn("[NextAuth JWT CB] Refresh token is invalid. User may need to re-authenticate.");
+                return { ...token, error: "RefreshAccessTokenError", refreshToken: undefined, accessToken: undefined, accessTokenExpires: undefined }; // Invalider les tokens
+            }
+            throw new Error(refreshedTokens.error_description || "Unknown error during token refresh");
+        }
+        
+        console.log("[NextAuth JWT CB] Google access token refreshed successfully.");
+        return {
+            ...token,
+            accessToken: refreshedTokens.access_token,
+            accessTokenExpires: Date.now() + refreshedTokens.expires_in * 1000,
+            refreshToken: refreshedTokens.refresh_token ?? token.refreshToken,
+            error: undefined,
+        };
+    } catch (error) {
+        console.error("[NextAuth JWT CB] Catch block: Error refreshing Google access token:", error);
+        return { ...token, error: "RefreshAccessTokenError" };
+    }
 }
 
 export const authOptions: AuthOptions = {
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          scope: "openid email profile https://www.googleapis.com/auth/calendar.readonly"
+        }
+      }
     }),
     GitHubProvider({
-      clientId: process.env.GITHUB_CLIENT_ID as string,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
     }),
   ],
   session: {
-    // Stratégie JWT car nous n'utilisons pas d'adapter pour stocker les sessions en DB
     strategy: "jwt",
   },
   callbacks: {
-    // Le callback signIn est appelé lors d'une tentative de connexion, avant la création du JWT.
-    // Nous l'utilisons pour générer notre UUID interne et l'attacher à l'objet `user`.
-    async signIn({ user, account, profile }) {
-      if (!account || (!profile && !user)) { // Vérifications de base
-        console.error("[NextAuth SignIn CB] Missing account or profile/user information.");
-        return false; // Empêcher la connexion
+    async signIn({ user, account, profile }: { user: NextAuthUser, account: Account | null, profile?: Profile }) {
+      if (!account || !profile) {
+        console.error("[NextAuth SignIn CB] Missing account or profile for user:", user.email);
+        return false;
       }
 
-      let providerAccountId: string | undefined;
-
-      // Extraire l'ID unique du compte fournisseur.
-      // GoogleProfile a `sub`, GithubProfile a `id` (un nombre).
-      if (account.provider === "google") {
-        providerAccountId = (profile as GoogleProfile)?.sub;
-      } else if (account.provider === "github") {
-        providerAccountId = (profile as GithubProfile)?.id?.toString();
+      let providerAccountIdToUse: string | undefined;
+      if (account.provider === "google") providerAccountIdToUse = (profile as GoogleProfile)?.sub;
+      else if (account.provider === "github") providerAccountIdToUse = (profile as GithubProfile)?.id?.toString();
+      
+      if (!providerAccountIdToUse) {
+        console.error(`[NextAuth SignIn CB] No providerAccountId for ${account.provider}.`);
+        return false;
       }
-
-      if (!providerAccountId) {
-        console.error(`[NextAuth SignIn CB] Could not extract providerAccountId for provider: ${account.provider}. Profile:`, profile);
-        return false; // Empêcher la connexion
-      }
-
-      // Créer un nom unique basé sur le fournisseur et son ID de compte pour générer l'UUID v5
-      const uniqueNameForUuidInput = `${account.provider}-${providerAccountId}`;
-      const generatedAppUserId = uuidv5(uniqueNameForUuidInput, MY_APP_NAMESPACE);
-
-      // Attacher notre UUID d'application généré à l'objet `user`.
-      // Cet objet `user` sera ensuite passé au callback `jwt`.
-      user.id = generatedAppUserId;
-
-      // Optionnel: Mettre à jour/standardiser les champs de l'objet `user`
-      // si les noms de champs du `profile` diffèrent de ce que `jwt` ou `session` attendent.
-      // Pour Google et GitHub, NextAuth fait généralement un bon travail de mappage initial.
-      // user.name = profile?.name ?? user.name;
-      // user.email = profile?.email ?? user.email;
-      // user.image = profile?.image ?? user.image;
-
-      console.log(`[NextAuth SignIn CB] Provider: ${account.provider}, ProviderAccountId: ${providerAccountId}, GeneratedAppUserId: ${user.id}`);
-      return true; // Autoriser la connexion
+      
+      // user.id est de type `string` grâce à notre next-auth.d.ts `interface User`
+      user.id = uuidv5(`${account.provider}-${providerAccountIdToUse}`, MY_APP_NAMESPACE);
+      console.log(`[NextAuth SignIn CB] User: ${user.email}, Provider: ${account.provider}, App User ID: ${user.id}`);
+      return true;
     },
 
-    // Le callback jwt est appelé à chaque fois qu'un JWT est créé ou mis à jour.
-    // `user` est l'objet enrichi par le callback `signIn` (avec user.id = notre UUIDv5).
-    async jwt({ token, user }) {
-      // Lors de la connexion initiale (trigger === "signIn" ou "oAuthCallback"), `user` est présent.
-      if (user?.id) { // user.id est notre UUIDv5 généré
-        token.id = user.id;
-        // Les informations standards (name, email, picture) sont généralement
-        // déjà ajoutées au token par NextAuth si elles sont dans l'objet `user`.
-        // Si vous voulez être explicite ou ajouter d'autres infos du `user` au `token`:
-        // token.name = user.name;
-        // token.email = user.email;
-        // token.picture = user.image;
+    async jwt({ token, user, account }: { token: JWT, user?: NextAuthUser, account?: Account | null }) {
+      // `user` et `account` ne sont disponibles que lors de la connexion initiale.
+      // Pour les appels suivants (ex: useSession), seuls `token` (et d'autres comme `trigger`) sont passés.
+      
+      // Connexion initiale: stocker les informations du compte dans le token
+      if (account && user) {
+        console.log(`[NextAuth JWT CB] Initial sign-in for user ID: ${user.id}, provider: ${account.provider}`);
+        
+        token.id = user.id; // Notre UUIDv5
+        token.accessToken = account.access_token;
+        token.refreshToken = account.refresh_token;
+        // account.expires_at est un timestamp UNIX (secondes) du moment de l'expiration.
+        token.accessTokenExpires = account.expires_at ? (account.expires_at * 1000) : undefined;
+        token.provider = account.provider;
+        token.error = undefined; // Réinitialiser les erreurs
+
+        console.log(`[NextAuth JWT CB] Tokens stored for ${account.provider}. AccessToken Expiry: ${token.accessTokenExpires ? new Date(token.accessTokenExpires) : 'N/A'}, RefreshToken present: ${!!token.refreshToken}`);
       }
-      // Sur les appels suivants (ex: `useSession`, `getServerSession`), `user` n'est pas là,
-      // mais le `token` existant (avec notre `token.id`) est fourni.
-      return token;
+
+      // Si le token est sur le point d'expirer (ex: dans les 5 prochaines minutes) ET qu'il n'y a pas déjà une erreur de refresh
+      if (token.accessTokenExpires && Date.now() + (5 * 60 * 1000) > token.accessTokenExpires && token.error !== "RefreshAccessTokenError") {
+        console.log(`[NextAuth JWT CB] Access token for ${token.provider} is expiring or expired. Attempting refresh.`);
+        if (token.provider === "google" && token.refreshToken) {
+          return refreshGoogleAccessToken(token); // Retourne le token mis à jour ou avec une erreur
+        }
+        console.warn(`[NextAuth JWT CB] Access token for ${token.provider} needs refresh, but no refresh logic or no refresh token.`);
+      }
+
+      return token; // Retourner le token (original ou avec erreur si le refresh n'a pas pu être tenté)
     },
 
-    // Le callback session est appelé chaque fois qu'une session est accédée (côté client ou serveur).
-    // Il reçoit le `token` du callback `jwt`.
-    async session({ session, token }) {
-      // Propagez l'ID (notre UUIDv5) du token à l'objet `session.user`.
+    async session({ session, token }: { session: Session, token: JWT }) {
+      // `token` est le JWT final après le callback `jwt` (potentiellement rafraîchi ou avec une erreur)
+      // `session` est l'objet Session de base de NextAuth, que nous allons peupler.
+      // Le type `Session` ici est notre type étendu grâce à `next-auth.d.ts`.
+
       if (token?.id && session.user) {
-        session.user.id = token.id as string;
+        session.user.id = token.id;
+      } else if (session.user) {
+        // Si token.id n'est pas défini, c'est un problème car notre app ID ne sera pas dans la session.
+        // Cela ne devrait pas arriver pour un utilisateur authentifié si signIn et jwt fonctionnent.
+        console.error("[NextAuth Session CB] token.id is missing! session.user.id will be default or undefined.");
+        // Pour s'assurer que session.user.id est une string, même si vide:
+        session.user.id = session.user.id || ""; 
       }
-      // Les champs `session.user.name`, `session.user.email`, `session.user.image`
-      // sont normalement déjà remplis par NextAuth à partir du token JWT.
+      
+      if (token?.error) {
+        session.error = token.error;
+      } else {
+        // S'assurer que session.error est undefined s'il n'y a pas d'erreur dans le token
+        delete session.error;
+      }
+      
+      console.log("[NextAuth Session CB] Final session object for client:", { userId: session.user?.id, error: session.error });
       return session;
     },
   },
   pages: {
-    signIn: '/signin', // Votre page de connexion personnalisée
-    // error: '/auth/error', // Page d'erreur personnalisée (optionnel)
+    signIn: '/signin',
   },
   debug: process.env.NODE_ENV === 'development',
-  // secret: process.env.NEXTAUTH_SECRET, // Lu automatiquement depuis .env
 };
 
 const handler = NextAuth(authOptions);
-
 export { handler as GET, handler as POST };

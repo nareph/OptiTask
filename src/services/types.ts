@@ -269,3 +269,50 @@ export type PaginatedResponse<T> = {
   total: number;
 };
 
+// Google Calendar Event (structure simplifiée, basée sur ce que l'API Google retourne)
+// et ce que vous voulez afficher.
+export interface CalendarEvent {
+  kind?: string;
+  etag?: string;
+  id: string; // L'ID de l'événement est important
+  status?: string; // "confirmed", "tentative", "cancelled"
+  htmlLink?: string | null;
+  created?: string; // ISO DateTime
+  updated?: string; // ISO DateTime
+  summary?: string | null; // Titre de l'événement
+  description?: string | null;
+  location?: string | null;
+  creator?: {
+    email?: string;
+    displayName?: string;
+    self?: boolean;
+  };
+  organizer?: {
+    email?: string;
+    displayName?: string;
+    self?: boolean;
+  };
+  start: { // 'start' et 'end' sont cruciaux
+    date?: string | null;      // Pour les événements sur toute la journée (YYYY-MM-DD)
+    dateTime?: string | null; // Pour les événements avec une heure précise (ISO DateTime)
+    timeZone?: string | null;
+  };
+  end: {
+    date?: string | null;
+    dateTime?: string | null;
+    timeZone?: string | null;
+  };
+  recurringEventId?: string;
+  originalStartTime?: { // Pour les instances d'événements récurrents
+    date?: string | null;
+    dateTime?: string | null;
+    timeZone?: string | null;
+  };
+  iCalUID?: string;
+  sequence?: number;
+  reminders?: {
+    useDefault: boolean;
+    // overrides?: Array<{ method: string, minutes: number }>;
+  };
+  eventType?: string; // "default", "focusTime", "outOfOffice"
+}

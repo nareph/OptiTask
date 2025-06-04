@@ -2,13 +2,14 @@
 "use client";
 
 import AnalyticsView from "@/components/analytics/AnalyticsView";
+import CalendarView from "@/components/calendar/CalendarView";
 import ProjectsView from "@/components/projects/ProjectsView";
 import { RefreshIcon } from "@/components/ui/Icons";
 import { isApiError } from "@/services/common";
 import { fetchLabels } from "@/services/labelApi";
 import { fetchProjects } from "@/services/projectApi";
 import { Label, Project } from "@/services/types";
-import { Tab } from "@headlessui/react";
+import { Tab, TabGroup, TabList, TabPanel, TabPanels } from "@headlessui/react";
 import { signOut, useSession } from "next-auth/react";
 import Image from 'next/image';
 import Link from "next/link";
@@ -204,8 +205,8 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <Tab.Group>
-            <Tab.List className="flex space-x-1 rounded-lg bg-blue-900/20 p-1 mb-6">
+          <TabGroup>
+            <TabList className="flex space-x-1 rounded-lg bg-blue-900/20 p-1 mb-6">
               <Tab
                 className={({ selected }) =>
                   `w-full rounded-lg py-2.5 text-sm font-medium leading-5 text-blue-700
@@ -224,9 +225,14 @@ export default function DashboardPage() {
               >
                 Analytics
               </Tab>
-            </Tab.List>
-            <Tab.Panels className="mt-2">
-              <Tab.Panel>
+              <Tab className={({ selected }) =>
+                `w-full rounded-lg py-2.5 text-sm font-medium leading-5 text-blue-700
+                   ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2
+                   ${selected ? 'bg-white shadow' : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'}`
+              }> Calendar </Tab>
+            </TabList>
+            <TabPanels className="mt-2">
+              <TabPanel>
                 <ProjectsView
                   projects={projects}
                   allUserLabels={allUserLabels}
@@ -235,12 +241,17 @@ export default function DashboardPage() {
                   isLoading={isLoadingGlobalData}
                   error={globalError}
                 />
-              </Tab.Panel>
-              <Tab.Panel>
+              </TabPanel>
+              <TabPanel>
                 <AnalyticsView session={session} />
-              </Tab.Panel>
-            </Tab.Panels>
-          </Tab.Group>
+              </TabPanel>
+              <TabPanel className="rounded-xl bg-white p-3 shadow ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2">
+                {/* Intégration de CalendarView. Il utilise useSession en interne. */}
+                <CalendarView />
+                {/* Ou si CalendarView n'a pas besoin de la prop session explicitement : <CalendarView /> */}
+              </TabPanel>
+            </TabPanels>
+          </TabGroup>
         </div>
       </main>
     </div>
