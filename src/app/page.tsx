@@ -4,18 +4,25 @@
 import AnalyticsView from "@/components/analytics/AnalyticsView";
 import CalendarView from "@/components/calendar/CalendarView";
 import ProjectsView from "@/components/projects/ProjectsView";
-import { RefreshIcon } from "@/components/ui/Icons";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { isApiError } from "@/services/common";
 import { fetchLabels } from "@/services/labelApi";
 import { fetchProjects } from "@/services/projectApi";
 import { Label, Project } from "@/services/types";
-import { Tab, TabGroup, TabList, TabPanel, TabPanels } from "@headlessui/react";
+import { AlertCircle, LogOut, RefreshCw } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
-import Image from 'next/image';
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-
-//const RefreshIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m-15.357-2a8.001 8.001 0 0015.357 2M15 15h-4.581"></path></svg>;
 
 export default function DashboardPage() {
   const { data: session, status: sessionStatus } = useSession();
@@ -23,13 +30,12 @@ export default function DashboardPage() {
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [allUserLabels, setAllUserLabels] = useState<Label[]>([]);
-  //const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  //const [projectNameForFilter, setProjectNameForFilter] = useState<string | null>(null);
   const [isLoadingGlobalData, setIsLoadingGlobalData] = useState(true);
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const [isPomodoroActive, setIsPomodoroActive] = useState(false);
+  const [currentTab, setCurrentTab] = useState("projects");
 
-  // Utiliser loadedSessionUserIdRef pour suivre pour quel utilisateur les données ont été chargées
-  const loadedSessionUserIdRef = useRef<string | null | undefined>(undefined); // undefined = jamais chargé, null = déconnecté
+  const loadedSessionUserIdRef = useRef<string | null | undefined>(undefined);
 
   const loadGlobalData = useCallback(async (showLoadingIndicator = true, reason = "unknown") => {
     console.log(`DashboardPage: loadGlobalData called. Reason: ${reason}. ShowLoading: ${showLoadingIndicator}. Current Session User ID: ${session?.user?.id}`);
@@ -41,23 +47,22 @@ export default function DashboardPage() {
       setGlobalError(null);
       return;
     }
-    if (!session) { // Double-check, sessionStatus devrait suffire
+    if (!session) {
       console.log("DashboardPage: loadGlobalData - Session object is null. Aborting.");
       return;
     }
 
     if (showLoadingIndicator) setIsLoadingGlobalData(true);
-    setGlobalError(null); // Réinitialiser l'erreur à chaque tentative de chargement
+    setGlobalError(null);
 
     try {
-      const currentSessionForAPI = session; // Capturer la session pour les appels
+      const currentSessionForAPI = session;
       const [projectsResult, userLabelsResult] = await Promise.all([
         fetchProjects(currentSessionForAPI),
         fetchLabels(currentSessionForAPI)
       ]);
 
-      // Vérifier si l'utilisateur actuel est toujours le même que celui qui a initié le fetch
-      // Cela évite de mettre à jour l'état si l'utilisateur s'est déconnecté/reconnecté pendant le fetch
+
       if (session?.user?.id !== currentSessionForAPI.user?.id) {
         console.log("DashboardPage: loadGlobalData - User changed during fetch. Aborting state update.");
         if (showLoadingIndicator) setIsLoadingGlobalData(false);
@@ -78,7 +83,6 @@ export default function DashboardPage() {
         setAllUserLabels(userLabelsResult.sort((a, b) => a.name.localeCompare(b.name)));
       }
 
-      // Marquer que les données ont été chargées pour cet utilisateur
       if (!isApiError(projectsResult) && !isApiError(userLabelsResult)) {
         loadedSessionUserIdRef.current = currentSessionForAPI.user.id;
         console.log(`DashboardPage: loadGlobalData - Successfully loaded data for user ${currentSessionForAPI.user.id}. Updated loadedSessionUserIdRef.`);
@@ -91,7 +95,7 @@ export default function DashboardPage() {
     } finally {
       if (showLoadingIndicator) setIsLoadingGlobalData(false);
     }
-  }, [session, sessionStatus]); // `session` et `sessionStatus` sont des dépendances clés
+  }, [session, sessionStatus]);
 
   useEffect(() => {
     console.log(
@@ -101,32 +105,22 @@ export default function DashboardPage() {
     );
 
     if (sessionStatus === "authenticated" && session?.user?.id) {
-      // Charger les données si:
-      // 1. C'est la première fois (loadedSessionUserIdRef.current est undefined)
-      // 2. OU l'ID utilisateur a changé (l'utilisateur s'est reconnecté avec un autre compte)
       if (loadedSessionUserIdRef.current === undefined || loadedSessionUserIdRef.current !== session.user.id) {
         console.log("DashboardPage: useEffect - Condition met for initial/user-changed data load.");
         loadGlobalData(true, "useEffect - initial/user-changed");
       } else {
         console.log("DashboardPage: useEffect - User ID is the same, no full reload by this effect.");
-        // Ici, on pourrait envisager un `loadGlobalData(false)` si la *référence* de session a changé
-        // mais que l'ID est le même, pour un rafraîchissement discret des données (ex: token update).
-        // Mais pour l'instant, on le garde simple pour éviter les boucles.
       }
     } else if (sessionStatus === "unauthenticated") {
       console.log("DashboardPage: useEffect - User unauthenticated. Resetting states and loadedSessionUserIdRef.");
       setProjects([]); setAllUserLabels([]);
-      if (isLoadingGlobalData) setIsLoadingGlobalData(false); // S'assurer que le chargement s'arrête
+      if (isLoadingGlobalData) setIsLoadingGlobalData(false);
       setGlobalError(null);
-      // setSelectedProjectId(null);
-      // setProjectNameForFilter(null);
-      loadedSessionUserIdRef.current = null; // Marquer comme déconnecté
+      loadedSessionUserIdRef.current = null;
     }
-  }, [sessionStatus, session, loadGlobalData, isLoadingGlobalData]); // Ajouter isLoadingGlobalData pour éviter des appels si déjà en chargement
+  }, [sessionStatus, session, loadGlobalData, isLoadingGlobalData]);
 
   const handleDataChanged = useCallback(() => {
-    // Ce callback est appelé par les composants enfants après CUD.
-    // Il doit déclencher un re-fetch discret des données.
     console.log("DashboardPage: handleDataChanged called by child. Reloading global data (discreetly).");
     loadGlobalData(false, "handleDataChanged");
   }, [loadGlobalData]);
@@ -136,27 +130,63 @@ export default function DashboardPage() {
     setAllUserLabels(prevLabels =>
       [...prevLabels, newLabel].sort((a, b) => a.name.localeCompare(b.name))
     );
-  }, []); // Pas de dépendances, car met à jour l'état localement
+  }, []);
 
-  /*   const handleProjectSelect = (projectId: string | null) => {
-      console.log("DashboardPage: handleProjectSelect called with projectId:", projectId);
-      setSelectedProjectId(projectId);
-      if (projectId) {
-        const selectedProject = projects.find(p => p.id === projectId);
-        setProjectNameForFilter(selectedProject ? selectedProject.name : null);
-      } else {
-        setProjectNameForFilter(null);
-      }
-    }; */
+  const handlePomodoroStateChange = useCallback((isActive: boolean) => {
+    console.log("DashboardPage: Pomodoro state changed:", isActive);
+    setIsPomodoroActive(isActive);
+  }, []);
+
+  const handleTabChange = useCallback((value: string) => {
+    if (isPomodoroActive && value !== "projects") {
+      console.log("DashboardPage: Navigation blocked - Pomodoro is active");
+      return;
+    }
+    setCurrentTab(value);
+  }, [isPomodoroActive]);
+
+  const getUserInitials = (name?: string | null, email?: string | null) => {
+    if (name) {
+      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+    if (email) {
+      return email.charAt(0).toUpperCase();
+    }
+    return 'U';
+  };
 
   if (sessionStatus === "loading") {
     console.log("DashboardPage: Rendering 'Initializing session...'");
-    return (<div className="flex items-center justify-center min-h-screen bg-gray-100"><p className="text-xl text-gray-500 animate-pulse">Initializing session...</p></div>);
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Card className="p-8">
+          <CardContent className="flex items-center space-x-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p className="text-xl text-muted-foreground">Initializing session...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
+
   if (!session && sessionStatus === "unauthenticated") {
     console.log("DashboardPage: Rendering 'Access Denied' (should be handled by middleware ideally)");
-    return (<div className="flex flex-col items-center justify-center min-h-screen bg-gray-100"><div className="p-8 bg-white shadow-xl rounded-lg text-center"><h1 className="text-2xl font-bold mb-4 text-red-600">Access Denied</h1><p className="text-gray-700">Please sign in to view the dashboard.</p><Link href="/api/auth/signin" className="mt-6 inline-block px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">Sign In</Link></div></div>);
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background">
+        <Card className="p-8 max-w-md">
+          <CardContent className="text-center space-y-4">
+            <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
+            <h1 className="text-2xl font-bold text-destructive">Access Denied</h1>
+            <p className="text-muted-foreground">Please sign in to view the dashboard.</p>
+            <Button asChild className="w-full">
+              <Link href="/api/auth/signin">Sign In</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
+
   if (!session) { // Sécurité supplémentaire
     console.log("DashboardPage: Rendering null (session is null after status checks)");
     return null;
@@ -164,34 +194,65 @@ export default function DashboardPage() {
 
   console.log("DashboardPage: Proceeding to render main content. isLoadingGlobalData:", isLoadingGlobalData);
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-white shadow-sm sticky top-0 z-40">
+    <div className="min-h-screen bg-background">
+      <header className="bg-card shadow-sm sticky top-0 z-40 border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center"> <h1 className="text-2xl font-bold text-blue-600">OptiTask</h1> </div>
+            <div className="flex items-center">
+              <h1 className="text-2xl font-bold text-primary">OptiTask</h1>
+            </div>
             <div className="flex items-center space-x-3">
-              <button
+              <Button
                 onClick={() => {
                   console.log("DashboardPage: Manual Refresh button clicked.");
                   loadedSessionUserIdRef.current = undefined; // Forcer le rechargement par useEffect
                   loadGlobalData(true, "Manual Refresh Button"); // Ou appeler directement
                 }}
                 disabled={isLoadingGlobalData}
-                className="p-1.5 text-gray-500 hover:text-blue-600 rounded-md hover:bg-gray-100 disabled:opacity-50"
-                title="Refresh All Data"
+                variant="ghost"
+                size="sm"
+                className="p-2"
               >
-                <RefreshIcon />
-              </button>
-              {session.user?.image && (<Image src={session.user.image} alt={session.user.name || "User avatar"} width={36} height={36} className="rounded-full border" priority />)}
-              <span className="text-sm font-medium text-gray-700 hidden md:block"> {session.user?.name || session.user?.email} </span>
-              <button
-                onClick={() => {
-                  console.log("DashboardPage: Sign out button clicked.");
-                  loadedSessionUserIdRef.current = null; // Prépare pour le prochain login
-                  signOut({ callbackUrl: "/" });
-                }}
-                className="px-3 py-1.5 text-xs sm:text-sm font-semibold text-white bg-red-500 rounded-md hover:bg-red-600"
-              > Sign out </button>
+                <RefreshCw className={`h-4 w-4 ${isLoadingGlobalData ? 'animate-spin' : ''}`} />
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={session.user?.image || ''} alt={session.user?.name || 'User avatar'} />
+                      <AvatarFallback>
+                        {getUserInitials(session.user?.name, session.user?.email)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <div className="flex items-center justify-start gap-2 p-2">
+                    <div className="flex flex-col space-y-1 leading-none">
+                      {session.user?.name && (
+                        <p className="font-medium">{session.user.name}</p>
+                      )}
+                      {session.user?.email && (
+                        <p className="text-xs text-muted-foreground">
+                          {session.user.email}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      console.log("DashboardPage: Sign out button clicked.");
+                      loadedSessionUserIdRef.current = null;
+                      signOut({ callbackUrl: "/" });
+                    }}
+                    className="text-destructive cursor-pointer"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
@@ -200,58 +261,77 @@ export default function DashboardPage() {
       <main className="py-6">
         <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
           {globalError && (
-            <div className="mb-4 p-3 bg-red-50 text-red-700 border border-red-200 rounded-md text-sm">
-              Error: {globalError}
-            </div>
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {globalError}
+              </AlertDescription>
+            </Alert>
           )}
 
-          <TabGroup>
-            <TabList className="flex space-x-1 rounded-lg bg-blue-900/20 p-1 mb-6">
-              <Tab
-                className={({ selected }) =>
-                  `w-full rounded-lg py-2.5 text-sm font-medium leading-5 text-blue-700
-                   ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2
-                   ${selected ? 'bg-white shadow' : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'}`
-                }
+          <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger
+                value="projects"
+                className="relative"
               >
                 Projects
-              </Tab>
-              <Tab
-                className={({ selected }) =>
-                  `w-full rounded-lg py-2.5 text-sm font-medium leading-5 text-blue-700
-                   ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2
-                   ${selected ? 'bg-white shadow' : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'}`
-                }
+              </TabsTrigger>
+              <TabsTrigger
+                value="analytics"
+                disabled={isPomodoroActive}
+                className={`relative ${isPomodoroActive ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 Analytics
-              </Tab>
-              <Tab className={({ selected }) =>
-                `w-full rounded-lg py-2.5 text-sm font-medium leading-5 text-blue-700
-                   ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2
-                   ${selected ? 'bg-white shadow' : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'}`
-              }> Calendar </Tab>
-            </TabList>
-            <TabPanels className="mt-2">
-              <TabPanel>
-                <ProjectsView
-                  projects={projects}
-                  allUserLabels={allUserLabels}
-                  onDataChanged={handleDataChanged}
-                  onLabelCreated={handleLabelCreatedInTaskForm}
-                  isLoading={isLoadingGlobalData}
-                  error={globalError}
-                />
-              </TabPanel>
-              <TabPanel>
-                <AnalyticsView session={session} />
-              </TabPanel>
-              <TabPanel className="rounded-xl bg-white p-3 shadow ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2">
-                {/* Intégration de CalendarView. Il utilise useSession en interne. */}
-                <CalendarView />
-                {/* Ou si CalendarView n'a pas besoin de la prop session explicitement : <CalendarView /> */}
-              </TabPanel>
-            </TabPanels>
-          </TabGroup>
+                {isPomodoroActive && (
+                  <div className="absolute -top-1 -right-1 h-2 w-2 bg-destructive rounded-full animate-pulse" />
+                )}
+              </TabsTrigger>
+              <TabsTrigger
+                value="calendar"
+                disabled={isPomodoroActive}
+                className={`relative ${isPomodoroActive ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                Calendar
+                {isPomodoroActive && (
+                  <div className="absolute -top-1 -right-1 h-2 w-2 bg-destructive rounded-full animate-pulse" />
+                )}
+              </TabsTrigger>
+            </TabsList>
+
+            {isPomodoroActive && currentTab !== "projects" && (
+              <Alert className="mt-4 border-orange-200 bg-orange-50">
+                <AlertCircle className="h-4 w-4 text-orange-600" />
+                <AlertDescription className="text-orange-800">
+                  A Pomodoro session is active. Stay focused on the Projects tab to maintain your productivity!
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <TabsContent value="projects" className="mt-6">
+              <ProjectsView
+                projects={projects}
+                allUserLabels={allUserLabels}
+                onDataChanged={handleDataChanged}
+                onLabelCreated={handleLabelCreatedInTaskForm}
+                onPomodoroStateChange={handlePomodoroStateChange}
+                isLoading={isLoadingGlobalData}
+                error={globalError}
+              />
+            </TabsContent>
+
+            <TabsContent value="analytics" className="mt-6">
+              <AnalyticsView session={session} />
+            </TabsContent>
+
+            <TabsContent value="calendar" className="mt-6">
+              <Card>
+                <CardContent className="p-6">
+                  <CalendarView />
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
     </div>

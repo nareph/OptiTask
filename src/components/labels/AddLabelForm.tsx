@@ -1,100 +1,119 @@
 // src/components/labels/AddLabelForm.tsx
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ColorPicker } from "@/components/ui/color-picker";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { isApiError } from "@/services/common";
 import { createLabel } from "@/services/labelApi";
-import { CreateLabelPayload, Label } from "@/services/types";
-import { DEFAULT_COLOR_VALUE, PREDEFINED_COLORS } from "@/utils/colors";
+import { CreateLabelPayload, Label as LabelT } from "@/services/types";
+import { DEFAULT_COLOR_VALUE } from "@/utils/colors";
+import { Loader2, PlusIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { FormEvent, useState } from "react";
-
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface AddLabelFormProps {
-    onLabelCreated: (newLabel: Label) => void;
-    onCancel?: () => void; // Optionnel pour fermer un mode "ajout"
+    onLabelCreated: (newLabel: LabelT) => void;
+    onCancel?: () => void;
 }
 
 export default function AddLabelForm({ onLabelCreated, onCancel }: AddLabelFormProps) {
-    const { data: session, status: sessionStatus } = useSession();
+    const { data: session } = useSession();
     const [name, setName] = useState("");
-    const [color, setColor] = useState<string | null>(DEFAULT_COLOR_VALUE); // Default Blue
+    const [color, setColor] = useState<string | null>(DEFAULT_COLOR_VALUE);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
-    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        setError(null);
-        if (!name.trim()) { setError("Label name is required."); return; }
-        if (sessionStatus !== "authenticated" || !session) { setError("User session not available."); return; }
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!name.trim()) {
+            toast.error("Label name is required");
+            return;
+        }
+
+        if (!session) {
+            toast.error("Session not available");
+            return;
+        }
+
         setIsSubmitting(true);
+        try {
+            const labelData: CreateLabelPayload = {
+                name: name.trim(),
+                color: color,
+            };
 
-        const labelData: CreateLabelPayload = {
-            name: name.trim(),
-            color: color,
-        };
+            const result = await createLabel(session, labelData);
+            if (isApiError(result)) {
+                throw new Error(result.message);
+            }
 
-        const result = await createLabel(session, labelData);
-
-        if (isApiError(result)) {
-            setError(result.message || "Failed to create label.");
-        } else {
+            toast.success("Label created successfully");
             onLabelCreated(result);
             setName("");
-            setColor(DEFAULT_COLOR_VALUE); // Reset à la couleur par défaut
+            setColor(DEFAULT_COLOR_VALUE);
             if (onCancel) onCancel();
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Failed to create label";
+            toast.error("Creation failed", {
+                description: message
+            });
+        } finally {
+            setIsSubmitting(false);
         }
-        setIsSubmitting(false);
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-3 p-3 border border-gray-200 rounded-lg bg-white shadow-sm mt-2">
-            <h4 className="text-sm font-semibold text-gray-700">Create New Label</h4>
-            {error && <p className="text-xs text-red-600 bg-red-100 p-1.5 rounded">{error}</p>}
-
-            <div>
-                <label htmlFor="addLabelName" className="block text-xs font-medium text-gray-600 mb-0.5">Name <span className="text-red-500">*</span></label>
-                <input type="text" id="addLabelName" value={name} onChange={(e) => setName(e.target.value)} required disabled={isSubmitting}
-                    className="w-full px-2.5 py-1 text-xs border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
-            </div>
-            <div>
-                <label htmlFor="addLabelColor" className="block text-xs font-medium text-gray-600 mb-0.5">Color</label>
-                <div className="flex flex-wrap gap-1.5">
-                    {PREDEFINED_COLORS.map(c => (
-                        <button
-                            type="button"
-                            key={c.value}
-                            title={c.name}
-                            onClick={() => setColor(c.value)}
-                            className={`w-5 h-5 rounded-full border-2 transition-all duration-150 
-                                        ${color === c.value ? 'ring-2 ring-offset-1 ring-blue-500' : 'border-gray-300 hover:border-gray-400'}`}
-                            style={{ backgroundColor: c.value }}
-                            disabled={isSubmitting}
+        <Card>
+            <CardHeader>
+                <CardTitle>Create New Label</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="label-name">Label Name</Label>
+                        <Input
+                            id="label-name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="Enter label name"
+                            required
                         />
-                    ))}
-                    <button // Bouton pour "pas de couleur"
-                        type="button"
-                        title="No Color"
-                        onClick={() => setColor(null)}
-                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-150
-                                    ${color === null ? 'ring-2 ring-offset-1 ring-blue-500 bg-gray-100' : 'border-gray-300 hover:border-gray-400 bg-white'}`}
-                        disabled={isSubmitting}
-                    >
-                        <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                </div>
-            </div>
-            <div className="flex items-center justify-end space-x-2 pt-1">
-                {onCancel && (
-                    <button type="button" onClick={onCancel} disabled={isSubmitting}
-                        className="px-2.5 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">
-                        Cancel
-                    </button>
-                )}
-                <button type="submit" disabled={isSubmitting || sessionStatus !== "authenticated"}
-                    className="px-2.5 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:bg-gray-300">
-                    {isSubmitting ? "Creating..." : "Create Label"}
-                </button>
-            </div>
-        </form>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Color (optional)</Label>
+                        <ColorPicker
+                            selectedColor={color}
+                            onColorChange={setColor}
+                        />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-4">
+                        {onCancel && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={onCancel}
+                                disabled={isSubmitting}
+                            >
+                                Cancel
+                            </Button>
+                        )}
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <PlusIcon className="mr-2 h-4 w-4" />
+                            )}
+                            Create Label
+                        </Button>
+                    </div>
+                </form>
+            </CardContent>
+        </Card>
     );
 }

@@ -1,12 +1,18 @@
 // src/components/analytics/AnalyticsView.tsx
 "use client";
 
-import { AnalyticsQueryArgs, ProductivityTrendPoint, TimeByProjectStat } from "@/services/types";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { fetchProductivityTrend, fetchTimeByProject } from "@/services/analyticsApi";
 import { isApiError } from "@/services/common";
+import { AnalyticsQueryArgs, ProductivityTrendPoint, TimeByProjectStat } from "@/services/types";
+import { AlertCircle, BarChart3, Calendar, Clock, TrendingUp } from "lucide-react";
 import { Session } from "next-auth";
-import { useState, useEffect } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
+import { useEffect, useState } from "react";
+import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import DateRangePicker from "./DateRangePicker";
 
 interface AnalyticsViewProps {
@@ -80,99 +86,268 @@ export default function AnalyticsView({ session }: AnalyticsViewProps) {
     }));
   };
 
-  return (
-    <div className="bg-white p-6 rounded-lg shadow-sm">
-      <h2 className="text-xl font-semibold mb-6">Productivity Analytics</h2>
+  // Calcul des statistiques de résumé
+  const totalHours = timeByProject.reduce((sum, item) => sum + (item.total_duration_seconds / 3600), 0);
+  const averageDailyHours = productivityTrend.length > 0
+    ? productivityTrend.reduce((sum, item) => sum + (item.total_duration_seconds / 3600), 0) / productivityTrend.length
+    : 0;
 
-      <div className="mb-6">
-        <div className="flex flex-wrap gap-4 items-center mb-4">
-          <div>
-            <label htmlFor="period-select" className="block text-sm font-medium text-gray-700 mb-1">
-              Time Period
-            </label>
-            <select
-              id="period-select"
-              value={queryParams.period}
-              onChange={(e) => handlePeriodChange(e.target.value)}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-            >
-              {periodOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {queryParams.period === "custom" && (
-            <DateRangePicker 
-              onDateRangeChange={handleDateRangeChange}
-              initialStartDate={queryParams.start_date}
-              initialEndDate={queryParams.end_date}
-            />
-          )}
-        </div>
+  const renderLoadingSkeleton = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Card key={i}>
+            <CardHeader className="pb-2">
+              <Skeleton className="h-4 w-20" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-8 w-16 mb-2" />
+              <Skeleton className="h-3 w-24" />
+            </CardContent>
+          </Card>
+        ))}
       </div>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <Card key={i}>
+            <CardHeader>
+              <Skeleton className="h-6 w-40" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-80 w-full" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 
-      {loading && (
-        <div className="flex justify-center items-center py-10">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-        </div>
-      )}
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5" />
+            Productivity Analytics
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-4 items-end">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">
+                Time Period
+              </label>
+              <Select value={queryParams.period} onValueChange={handlePeriodChange}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {periodOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {queryParams.period === "custom" && (
+              <DateRangePicker
+                onDateRangeChange={handleDateRangeChange}
+                initialStartDate={queryParams.start_date}
+                initialEndDate={queryParams.end_date}
+              />
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {loading && renderLoadingSkeleton()}
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 text-red-700 border border-red-200 rounded-md text-sm">
-          Error: {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <span className="font-semibold">Error:</span> {error}
+          </AlertDescription>
+        </Alert>
       )}
 
       {!loading && !error && (
-        <div className="space-y-8">
-          <div>
-            <h3 className="text-lg font-medium mb-4">Time Spent by Project</h3>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={timeByProject.map(item => ({
-                    name: item.project_name,
-                    hours: item.total_duration_seconds / 3600,
-                  }))}
-                  layout="vertical"
-                  margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" label={{ value: 'Hours', position: 'insideBottomRight', offset: -5 }} />
-                  <YAxis dataKey="name" type="category" width={100} />
-                  <Tooltip formatter={(value) => [`${value} hours`, 'Duration']} />
-                  <Legend />
-                  <Bar dataKey="hours" fill="#3b82f6" name="Duration" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+        <>
+          {/* Cartes de statistiques */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Total Hours
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalHours.toFixed(1)}</div>
+                <Badge variant="secondary" className="mt-1">
+                  {timeByProject.length} projects
+                </Badge>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4" />
+                  Daily Average
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{averageDailyHours.toFixed(1)}</div>
+                <Badge variant="secondary" className="mt-1">
+                  hours/day
+                </Badge>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Active Days
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {productivityTrend.filter(p => p.total_duration_seconds > 0).length}
+                </div>
+                <Badge variant="secondary" className="mt-1">
+                  of {productivityTrend.length} days
+                </Badge>
+              </CardContent>
+            </Card>
           </div>
 
-          <div>
-            <h3 className="text-lg font-medium mb-4">Productivity Trend</h3>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={productivityTrend.map(item => ({
-                    date: item.date_point,
-                    hours: item.total_duration_seconds / 3600,
-                  }))}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis label={{ value: 'Hours', angle: -90, position: 'insideLeft' }} />
-                  <Tooltip formatter={(value) => [`${value} hours`, 'Duration']} />
-                  <Legend />
-                  <Line type="monotone" dataKey="hours" stroke="#3b82f6" name="Daily Work" />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+          {/* Graphiques */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5" />
+                  Time Spent by Project
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {timeByProject.length > 0 ? (
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={timeByProject.map(item => ({
+                          name: item.project_name,
+                          hours: Number((item.total_duration_seconds / 3600).toFixed(2)),
+                        }))}
+                        layout="vertical"
+                        margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                        <XAxis
+                          type="number"
+                          label={{ value: 'Hours', position: 'insideBottomRight', offset: -5 }}
+                          className="text-xs"
+                        />
+                        <YAxis
+                          dataKey="name"
+                          type="category"
+                          width={100}
+                          className="text-xs"
+                        />
+                        <Tooltip
+                          formatter={(value) => [`${value} hours`, 'Duration']}
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px'
+                          }}
+                        />
+                        <Bar
+                          dataKey="hours"
+                          fill="hsl(var(--primary))"
+                          name="Duration"
+                          radius={[0, 4, 4, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="h-80 flex items-center justify-center text-muted-foreground">
+                    <div className="text-center">
+                      <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No project data available for this period</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5" />
+                  Productivity Trend
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {productivityTrend.length > 0 ? (
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart
+                        data={productivityTrend.map(item => ({
+                          date: new Date(item.date_point).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric'
+                          }),
+                          hours: Number((item.total_duration_seconds / 3600).toFixed(2)),
+                        }))}
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                        <XAxis
+                          dataKey="date"
+                          className="text-xs"
+                        />
+                        <YAxis
+                          label={{ value: 'Hours', angle: -90, position: 'insideLeft' }}
+                          className="text-xs"
+                        />
+                        <Tooltip
+                          formatter={(value) => [`${value} hours`, 'Duration']}
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px'
+                          }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="hours"
+                          stroke="hsl(var(--primary))"
+                          name="Daily Work"
+                          strokeWidth={2}
+                          dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 4 }}
+                          activeDot={{ r: 6, stroke: 'hsl(var(--primary))', strokeWidth: 2 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="h-80 flex items-center justify-center text-muted-foreground">
+                    <div className="text-center">
+                      <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No trend data available for this period</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

@@ -1,17 +1,16 @@
 // src/components/timer/TimerControls.tsx
-import { Button } from '../ui/Button'; // Assurez-vous que le chemin est correct
-import { PauseIcon, PlayIcon, RefreshIcon, StopIcon } from '../ui/Icons'; // Assurez-vous que le chemin est correct
+import { Pause, Play, RotateCcw, Square } from 'lucide-react';
+import { Button } from '../ui/button';
+import { cn } from '@/lib/utils';
 
 interface TimerControlsProps {
     isActive: boolean;
     isPaused: boolean;
-    onStart: () => void; // Considérez Promise<void> si vos handlers sont async
+    onStart: () => void;
     onPause: () => void;
-    onStop: () => void;  // Considérez Promise<void>
+    onStop: () => void;
     onReset: () => void;
-    disabled?: boolean; // Ajout de la prop disabled, optionnelle
-    // Ou plus spécifiquement :
-    // isStartDisabled?: boolean;
+    disabled?: boolean;
 }
 
 export const TimerControls = ({
@@ -21,19 +20,22 @@ export const TimerControls = ({
     onPause,
     onStop,
     onReset,
-    disabled = false, // Valeur par défaut pour disabled
+    disabled = false,
 }: TimerControlsProps) => {
     return (
-        <div className="flex flex-wrap justify-center gap-2 sm:gap-3"> {/* Ajout de flex-wrap */}
+        <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
             {!isActive ? (
                 <Button
                     onClick={onStart}
-                    variant="primary"
+                    variant="default"
                     size="lg"
-                    disabled={disabled} // Utiliser la prop disabled ici
-                    className="flex-grow sm:flex-grow-0" // Pour que le bouton prenne de la place sur petit écran
+                    disabled={disabled}
+                    className={cn(
+                        "flex-grow sm:flex-grow-0 transition-all duration-200",
+                        disabled && "opacity-50 cursor-not-allowed"
+                    )}
                 >
-                    <PlayIcon className="mr-1 sm:mr-2 h-5 w-5" /> {/* Ajuster taille icône */}
+                    <Play className="mr-1 sm:mr-2 h-4 w-4" />
                     Start
                 </Button>
             ) : (
@@ -43,39 +45,35 @@ export const TimerControls = ({
                         variant="secondary"
                         size="lg"
                         className="flex-grow sm:flex-grow-0"
-                    // disabled n'est généralement pas appliqué au bouton Pause/Resume si le timer est actif
                     >
                         {isPaused ? (
                             <>
-                                <PlayIcon className="mr-1 sm:mr-2 h-5 w-5" />
+                                <Play className="mr-1 sm:mr-2 h-4 w-4" />
                                 Resume
                             </>
                         ) : (
                             <>
-                                <PauseIcon className="mr-1 sm:mr-2 h-5 w-5" />
+                                <Pause className="mr-1 sm:mr-2 h-4 w-4" />
                                 Pause
                             </>
                         )}
                     </Button>
                     <Button
                         onClick={onStop}
-                        variant="danger"
+                        variant="destructive"
                         size="lg"
                         className="flex-grow sm:flex-grow-0"
-                    // disabled n'est généralement pas appliqué au bouton Stop si le timer est actif
                     >
-                        <StopIcon className="mr-1 sm:mr-2 h-5 w-5" />
+                        <Square className="mr-1 sm:mr-2 h-4 w-4" />
                         Stop
                     </Button>
-                    {/* Le bouton Reset pourrait aussi être conditionnellement désactivé,
-              mais il est souvent toujours disponible. */}
                     <Button
                         onClick={onReset}
                         variant="outline"
                         size="lg"
                         className="flex-grow sm:flex-grow-0"
                     >
-                        <RefreshIcon className="mr-1 sm:mr-2 h-5 w-5" />
+                        <RotateCcw className="mr-1 sm:mr-2 h-4 w-4" />
                         Reset
                     </Button>
                 </>

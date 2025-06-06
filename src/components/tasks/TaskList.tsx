@@ -19,6 +19,13 @@ import {
     useSensors
 } from '@dnd-kit/core';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Toggle } from '@/components/ui/toggle';
 import { useDroppable } from '@dnd-kit/core';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
 import {
@@ -27,15 +34,49 @@ import {
     sortableKeyboardCoordinates,
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
+import {
+    CalendarIcon,
+    CheckCircleIcon,
+    ClockIcon,
+    FilterIcon,
+    FlagIcon,
+    GridIcon,
+    ListIcon,
+    PlayCircleIcon,
+    PlusIcon,
+    RefreshCwIcon,
+    UserIcon
+} from 'lucide-react';
 import { Timer } from '../timer/Timer';
-import { PlusIcon, RefreshIcon } from '../ui/Icons';
 import TaskCard from './TaskCard';
 
 export const KANBAN_STATUSES = [
-    { id: "todo", title: "To Do" },
-    { id: "inprogress", title: "In Progress" },
-    { id: "done", title: "Done" },
+    {
+        id: "todo",
+        title: "To Do",
+        color: "bg-task-todo border-task-todo",
+        headerColor: "text-task-todo",
+        icon: <FlagIcon className="h-4 w-4" />
+    },
+    {
+        id: "inprogress",
+        title: "In Progress",
+        color: "bg-task-inprogress border-task-inprogress",
+        headerColor: "text-task-inprogress",
+        icon: <PlayCircleIcon className="h-4 w-4" />
+    },
+    {
+        id: "done",
+        title: "Done",
+        color: "bg-task-done border-task-done",
+        headerColor: "text-task-done",
+        icon: <CheckCircleIcon className="h-4 w-4" />
+    },
 ];
+
+type ViewMode = 'kanban' | 'list';
+type SortBy = 'created' | 'dueDate' | 'title';
+type FilterBy = 'all' | 'overdue' | 'today' | 'week';
 
 interface TaskListProps {
     projectIdForFilter?: string | null;
@@ -46,20 +87,29 @@ interface TaskListProps {
     onLabelCreatedInTaskForm: (newLabel: Label) => void;
     areParentResourcesLoading: boolean;
     showTimer?: boolean;
+    onPomodoroStateChange: (isActive: boolean) => void;
 }
 
 function DroppableColumn({
     id,
     title,
+    color,
+    headerColor,
+    icon,
     tasks,
     children,
-    isDragOver = false
+    isDragOver = false,
+    viewMode = 'kanban'
 }: {
     id: string;
     title: string;
+    color: string;
+    headerColor: string;
+    icon: React.ReactNode;
     tasks: TaskWithLabels[];
     children: React.ReactNode;
     isDragOver?: boolean;
+    viewMode?: ViewMode;
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id,
@@ -69,23 +119,133 @@ function DroppableColumn({
         }
     });
 
+    const urgentCount = tasks.filter(task =>
+        (task.due_date && new Date(task.due_date) < new Date())
+    ).length;
+
     return (
-        <div
+        <Card
             ref={setNodeRef}
-            className={`bg-gray-50 rounded-lg p-4 flex flex-col transition-all duration-200 ${isOver || isDragOver
-                ? 'bg-blue-50 ring-2 ring-blue-300 shadow-lg scale-[1.02]'
-                : ''
-                }`}
+            className={`${color} p-4 flex flex-col transition-all duration-300 min-h-[400px] ${isOver || isDragOver
+                ? 'ring-2 ring-primary shadow-xl scale-[1.02] bg-info-custom'
+                : 'hover:shadow-md'
+                } ${viewMode === 'list' ? 'md:min-h-[200px]' : ''}`}
         >
-            <h3 className="font-semibold text-gray-700 mb-4 sticky top-0 bg-gray-50 py-2 z-10">
-                {title} <span className="text-gray-500">({tasks.length})</span>
+            <div className="flex items-center justify-between mb-4 sticky top-0 bg-inherit py-2 z-10 rounded-md">
+                <div className="flex items-center space-x-2">
+                    <span className={headerColor}>{icon}</span>
+                    <h3 className={`font-semibold ${headerColor}`}>
+                        {title}
+                    </h3>
+                    <Badge variant="secondary" className="text-xs">
+                        {tasks.length}
+                    </Badge>
+                    {urgentCount > 0 && (
+                        <Badge variant="destructive" className="text-xs animate-pulse">
+                            {urgentCount} urgent
+                        </Badge>
+                    )}
+                </div>
                 {(isOver || isDragOver) && (
-                    <span className="ml-2 text-blue-600 text-sm">← Drop here</span>
+                    <Badge variant="outline" className="text-info-custom border-info-custom bg-background">
+                        Drop here
+                    </Badge>
                 )}
-            </h3>
-            <div className="space-y-3 flex-1 min-h-[100px]">
+            </div>
+            <div className={`space-y-3 flex-1 ${viewMode === 'list' ? 'max-h-[300px] overflow-y-auto' : ''}`}>
                 {children}
             </div>
+        </Card>
+    );
+}
+
+function TaskFilters({
+    sortBy,
+    setSortBy,
+    filterBy,
+    setFilterBy,
+    viewMode,
+    setViewMode,
+    showFilters,
+    setShowFilters
+}: {
+    sortBy: SortBy;
+    setSortBy: (sort: SortBy) => void;
+    filterBy: FilterBy;
+    setFilterBy: (filter: FilterBy) => void;
+    viewMode: ViewMode;
+    setViewMode: (mode: ViewMode) => void;
+    showFilters: boolean;
+    setShowFilters: (show: boolean) => void;
+}) {
+    return (
+        <div className="flex flex-col space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center space-x-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowFilters(!showFilters)}
+                        className="flex items-center space-x-1"
+                    >
+                        <FilterIcon className="h-4 w-4" />
+                        <span>Filters</span>
+                    </Button>
+
+                    <div className="flex items-center border rounded-md">
+                        <Toggle
+                            pressed={viewMode === 'kanban'}
+                            onPressedChange={() => setViewMode('kanban')}
+                            size="sm"
+                            className="rounded-r-none"
+                        >
+                            <GridIcon className="h-4 w-4" />
+                        </Toggle>
+                        <Toggle
+                            pressed={viewMode === 'list'}
+                            onPressedChange={() => setViewMode('list')}
+                            size="sm"
+                            className="rounded-l-none"
+                        >
+                            <ListIcon className="h-4 w-4" />
+                        </Toggle>
+                    </div>
+                </div>
+            </div>
+
+            {showFilters && (
+                <div className="flex flex-wrap gap-4 p-4 bg-filters rounded-lg border">
+                    <div className="flex items-center space-x-2">
+                        <CalendarIcon className="h-4 w-4 text-filters" />
+                        <Select value={sortBy} onValueChange={(value: SortBy) => setSortBy(value)}>
+                            <SelectTrigger className="w-32">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="created">Created</SelectItem>
+                                <SelectItem value="dueDate">Due Date</SelectItem>
+                                <SelectItem value="priority">Priority</SelectItem>
+                                <SelectItem value="title">Title</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                        <UserIcon className="h-4 w-4 text-filters" />
+                        <Select value={filterBy} onValueChange={(value: FilterBy) => setFilterBy(value)}>
+                            <SelectTrigger className="w-32">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Tasks</SelectItem>
+                                <SelectItem value="overdue">Overdue</SelectItem>
+                                <SelectItem value="today">Due Today</SelectItem>
+                                <SelectItem value="week">Due This Week</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -98,7 +258,8 @@ export default function TaskList({
     onTasksDataChanged,
     onLabelCreatedInTaskForm,
     areParentResourcesLoading,
-    showTimer = true
+    showTimer = true,
+    onPomodoroStateChange
 }: TaskListProps) {
     const { data: session, status: sessionStatus } = useSession();
     const [tasks, setTasks] = useState<TaskWithLabels[]>([]);
@@ -109,6 +270,12 @@ export default function TaskList({
     const [activeTask, setActiveTask] = useState<TaskWithLabels | null>(null);
     const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
     const [optimisticUpdates, setOptimisticUpdates] = useState<Map<string, { originalTask: TaskWithLabels, timestamp: number }>>(new Map());
+
+    // Nouveaux états pour les améliorations
+    const [viewMode, setViewMode] = useState<ViewMode>('kanban');
+    const [sortBy, setSortBy] = useState<SortBy>('created');
+    const [filterBy, setFilterBy] = useState<FilterBy>('all');
+    const [showFilters, setShowFilters] = useState(false);
 
     const lastLoadTimeRef = useRef<number>(0);
     const isInitialLoadRef = useRef(true);
@@ -125,6 +292,51 @@ export default function TaskList({
             coordinateGetter: sortableKeyboardCoordinates,
         })
     );
+
+    // Fonction de filtrage et tri améliorée
+    const getFilteredAndSortedTasks = useCallback((tasks: TaskWithLabels[]) => {
+        let filtered = [...tasks];
+
+        // Filtrage
+        switch (filterBy) {
+            case 'overdue':
+                filtered = filtered.filter(task =>
+                    task.due_date && new Date(task.due_date) < new Date()
+                );
+                break;
+            case 'today':
+                const today = new Date().toDateString();
+                filtered = filtered.filter(task =>
+                    task.due_date && new Date(task.due_date).toDateString() === today
+                );
+                break;
+            case 'week':
+                const weekFromNow = new Date();
+                weekFromNow.setDate(weekFromNow.getDate() + 7);
+                filtered = filtered.filter(task =>
+                    task.due_date && new Date(task.due_date) <= weekFromNow
+                );
+                break;
+        }
+
+        // Tri
+        filtered.sort((a, b) => {
+            switch (sortBy) {
+                case 'dueDate':
+                    if (!a.due_date && !b.due_date) return 0;
+                    if (!a.due_date) return 1;
+                    if (!b.due_date) return -1;
+                    return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+                case 'title':
+                    return a.title.localeCompare(b.title);
+                case 'created':
+                default:
+                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            }
+        });
+
+        return filtered;
+    }, [filterBy, sortBy]);
 
     const loadTasks = useCallback(async (force = false) => {
         if (sessionStatus !== "authenticated" || !session?.user?.id) {
@@ -406,10 +618,18 @@ export default function TaskList({
         }
     };
 
+    const filteredTasks = getFilteredAndSortedTasks(tasks);
     const groupedTasks = KANBAN_STATUSES.map(status => ({
         ...status,
-        tasks: tasks.filter(task => task.status === status.id)
+        tasks: filteredTasks.filter(task => task.status === status.id)
     }));
+
+    // Statistiques pour le header
+    const taskStats = {
+        total: tasks.length,
+        completed: tasks.filter(t => t.status === 'done').length,
+        overdue: tasks.filter(t => t.due_date && new Date(t.due_date) < new Date()).length,
+    };
 
     return (
         <div className="flex flex-col h-full space-y-6">
@@ -417,85 +637,141 @@ export default function TaskList({
                 <Timer
                     tasks={tasks}
                     projectsForForms={projectsForForms}
-                    /// projectId={projectIdForFilter || undefined}
                     onDataChanged={onTasksDataChanged}
+                    onPomodoroStateChange={onPomodoroStateChange}
                 />
             )}
 
             <div className="flex flex-col h-full">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold text-gray-800">
-                        {projectNameForFilter || "All Tasks"}
-                    </h2>
-                    <div className="flex items-center space-x-3">
-                        <button
-                            onClick={() => loadTasks(true)}
-                            disabled={isLoading}
-                            className="p-2 text-gray-500 hover:text-blue-600 rounded-md hover:bg-gray-100 disabled:opacity-50"
-                            title="Refresh tasks"
-                        >
-                            <RefreshIcon />
-                        </button>
-                        <button
-                            onClick={() => setShowAddForm(true)}
-                            disabled={isLoading || areParentResourcesLoading}
-                            className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-400 transition-colors duration-200"
-                        >
-                            <PlusIcon />
-                            <span className="ml-2">Add Task</span>
-                        </button>
+                {/* Header amélioré avec statistiques */}
+                <div className="flex flex-col space-y-4 mb-6">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <h2 className="text-2xl font-bold text-foreground">
+                                {projectNameForFilter || "All Tasks"}
+                            </h2>
+                            <div className="flex items-center space-x-4 mt-2 text-sm text-muted-foreground">
+                                <span className="flex items-center space-x-1">
+                                    <span className="w-2 h-2 bg-info-custom rounded-full"></span>
+                                    <span>{taskStats.total} total</span>
+                                </span>
+                                <span className="flex items-center space-x-1">
+                                    <span className="w-2 h-2 bg-success-custom rounded-full"></span>
+                                    <span>{taskStats.completed} completed</span>
+                                </span>
+                                {taskStats.overdue > 0 && (
+                                    <span className="flex items-center space-x-1 text-warning-custom">
+                                        <ClockIcon className="h-3 w-3" />
+                                        <span>{taskStats.overdue} overdue</span>
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => loadTasks(true)}
+                                disabled={isLoading}
+                                title="Refresh tasks"
+                            >
+                                <RefreshCwIcon className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                            </Button>
+                            <Button
+                                onClick={() => setShowAddForm(true)}
+                                disabled={isLoading || areParentResourcesLoading}
+                                className="bg-primary hover:bg-primary/90"
+                            >
+                                <PlusIcon className="mr-2 h-4 w-4" />
+                                Add Task
+                            </Button>
+                        </div>
                     </div>
+
+                    {/* Filtres et vues */}
+                    <TaskFilters
+                        sortBy={sortBy}
+                        setSortBy={setSortBy}
+                        filterBy={filterBy}
+                        setFilterBy={setFilterBy}
+                        viewMode={viewMode}
+                        setViewMode={setViewMode}
+                        showFilters={showFilters}
+                        setShowFilters={setShowFilters}
+                    />
                 </div>
 
                 {optimisticUpdates.size > 0 && (
-                    <div className="mb-4 p-2 bg-blue-50 border border-blue-200 rounded-md">
-                        <p className="text-sm text-blue-700">
+                    <Alert variant="default" className="mb-4 border-info-custom bg-info-custom">
+                        <ClockIcon className="h-4 w-4 text-info-custom" />
+                        <AlertDescription className="text-info-custom">
                             Syncing {optimisticUpdates.size} change{optimisticUpdates.size > 1 ? 's' : ''}...
-                        </p>
-                    </div>
+                        </AlertDescription>
+                    </Alert>
                 )}
 
                 {(isLoading || areParentResourcesLoading) && (
-                    <div className="flex justify-center items-center p-8 min-h-[400px]">
-                        <div className="flex flex-col items-center space-y-4">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                            <p className="text-gray-500">Loading tasks...</p>
-                        </div>
+                    <div className={`grid gap-6 ${viewMode === 'kanban' ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1'}`}>
+                        {KANBAN_STATUSES.map((status) => (
+                            <div key={status.id} className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="font-semibold">{status.title}</h3>
+                                    <Skeleton className="h-4 w-8" />
+                                </div>
+                                {[1, 2, 3].map((i) => (
+                                    <Card key={i} className="p-4 space-y-2">
+                                        <Skeleton className="h-4 w-3/4" />
+                                        <Skeleton className="h-3 w-1/2" />
+                                        <div className="flex space-x-2">
+                                            <Skeleton className="h-2 w-8 rounded-full" />
+                                            <Skeleton className="h-2 w-8 rounded-full" />
+                                        </div>
+                                    </Card>
+                                ))}
+                            </div>
+                        ))}
                     </div>
                 )}
 
                 {!session && sessionStatus === "unauthenticated" && (
-                    <div className="text-red-600 text-center py-8 bg-red-50 rounded-lg border border-red-200">
-                        <p className="text-lg font-medium">Please sign in to manage tasks.</p>
-                    </div>
+                    <Alert variant="destructive">
+                        <AlertDescription>Please sign in to manage tasks.</AlertDescription>
+                    </Alert>
                 )}
 
                 {error && (
-                    <div className="text-red-500 bg-red-50 p-4 rounded-md border border-red-200 mb-4">
-                        <div className="flex items-center justify-between">
-                            <span>{error}</span>
-                            <button
-                                onClick={() => {
-                                    setError(null);
-                                    loadTasks(true);
-                                }}
-                                className="ml-4 px-3 py-1 text-sm bg-red-100 hover:bg-red-200 rounded"
-                            >
-                                Retry
-                            </button>
-                        </div>
-                    </div>
+                    <Alert variant="destructive">
+                        <AlertDescription>{error}</AlertDescription>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2"
+                            onClick={() => {
+                                setError(null);
+                                loadTasks(true);
+                            }}
+                        >
+                            Retry
+                        </Button>
+                    </Alert>
                 )}
 
                 {!isLoading && !areParentResourcesLoading && session && sessionStatus === "authenticated" && (
                     <>
-                        {tasks.length === 0 ? (
-                            <div className="flex-1 flex flex-col items-center justify-center text-gray-500 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 py-12">
-                                <svg className="w-16 h-16 mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {filteredTasks.length === 0 ? (
+                            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed border-border rounded-lg bg-muted py-12">
+                                <svg className="w-16 h-16 mb-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                                 </svg>
-                                <p className="text-lg font-medium mb-2">No tasks found</p>
-                                <p className="text-sm">Click &quot;Add Task&quot; to create your first task.</p>
+                                <p className="text-lg font-medium mb-2">
+                                    {tasks.length === 0 ? "No tasks found" : "No tasks match your filters"}
+                                </p>
+                                <p className="text-sm">
+                                    {tasks.length === 0
+                                        ? 'Click "Add Task" to create your first task.'
+                                        : 'Try adjusting your filters or create a new task.'
+                                    }
+                                </p>
                             </div>
                         ) : (
                             <DndContext
@@ -506,33 +782,79 @@ export default function TaskList({
                                 onDragEnd={handleDragEnd}
                                 modifiers={[restrictToWindowEdges]}
                             >
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1">
-                                    {groupedTasks.map((column) => (
-                                        <DroppableColumn
-                                            key={column.id}
-                                            id={column.id}
-                                            title={column.title}
-                                            tasks={column.tasks}
-                                            isDragOver={dragOverColumn === column.id}
-                                        >
-                                            <SortableContext
-                                                items={column.tasks.map(t => t.id)}
-                                                strategy={verticalListSortingStrategy}
+                                <div className={`gap-6 flex-1 ${viewMode === 'kanban'
+                                    ? 'grid grid-cols-1 md:grid-cols-3'
+                                    : 'flex flex-col space-y-4'
+                                    }`}>
+                                    {viewMode === 'kanban' ? (
+                                        // Vue Kanban
+                                        groupedTasks.map((column) => (
+                                            <DroppableColumn
+                                                key={column.id}
+                                                id={column.id}
+                                                title={column.title}
+                                                color={column.color}
+                                                headerColor={column.headerColor}
+                                                icon={column.icon}
+                                                tasks={column.tasks}
+                                                isDragOver={dragOverColumn === column.id}
+                                                viewMode={viewMode}
                                             >
-                                                {column.tasks.map((task) => (
-                                                    <TaskCard
-                                                        key={task.id}
-                                                        task={task}
-                                                        projects={projectsForForms}
-                                                        onEdit={setEditingTask}
-                                                        onDelete={handleDeleteTask}
-                                                        isGloballyLoading={isLoading || areParentResourcesLoading}
-                                                        isDragging={activeTask?.id === task.id}
-                                                    />
-                                                ))}
-                                            </SortableContext>
-                                        </DroppableColumn>
-                                    ))}
+                                                <SortableContext
+                                                    items={column.tasks.map(t => t.id)}
+                                                    strategy={verticalListSortingStrategy}
+                                                >
+                                                    {column.tasks.map((task) => (
+                                                        <TaskCard
+                                                            key={task.id}
+                                                            task={task}
+                                                            projects={projectsForForms}
+                                                            onEdit={setEditingTask}
+                                                            onDelete={handleDeleteTask}
+                                                            isGloballyLoading={isLoading || areParentResourcesLoading}
+                                                            isDragging={activeTask?.id === task.id}
+                                                        />
+                                                    ))}
+                                                </SortableContext>
+                                            </DroppableColumn>
+                                        ))
+                                    ) : (
+                                        // Vue Liste
+                                        groupedTasks.map((column) => (
+                                            column.tasks.length > 0 && (
+                                                <DroppableColumn
+                                                    key={column.id}
+                                                    id={column.id}
+                                                    title={column.title}
+                                                    color={column.color}
+                                                    headerColor={column.headerColor}
+                                                    icon={column.icon}
+                                                    tasks={column.tasks}
+                                                    isDragOver={dragOverColumn === column.id}
+                                                    viewMode={viewMode}
+                                                >
+                                                    <SortableContext
+                                                        items={column.tasks.map(t => t.id)}
+                                                        strategy={verticalListSortingStrategy}
+                                                    >
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                            {column.tasks.map((task) => (
+                                                                <TaskCard
+                                                                    key={task.id}
+                                                                    task={task}
+                                                                    projects={projectsForForms}
+                                                                    onEdit={setEditingTask}
+                                                                    onDelete={handleDeleteTask}
+                                                                    isGloballyLoading={isLoading || areParentResourcesLoading}
+                                                                    isDragging={activeTask?.id === task.id}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    </SortableContext>
+                                                </DroppableColumn>
+                                            )
+                                        ))
+                                    )}
                                 </div>
                             </DndContext>
                         )}

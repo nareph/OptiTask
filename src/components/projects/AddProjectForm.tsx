@@ -1,142 +1,126 @@
 // src/components/projects/AddProjectForm.tsx
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ColorPicker } from "@/components/ui/color-picker";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { isApiError } from "@/services/common";
 import { createProject } from "@/services/projectApi";
 import { CreateProjectPayload, Project } from "@/services/types";
-import { DEFAULT_COLOR_VALUE, PREDEFINED_COLORS } from "@/utils/colors";
+import { DEFAULT_COLOR_VALUE } from "@/utils/colors";
+import { Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { FormEvent, useState } from "react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface AddProjectFormProps {
     onProjectCreated: (newProject: Project) => void;
     onCancel?: () => void;
 }
 
-
 export default function AddProjectForm({ onProjectCreated, onCancel }: AddProjectFormProps) {
-    const { data: session, status: sessionStatus } = useSession();
+    const { data: session } = useSession();
     const [name, setName] = useState("");
-    // Initialiser avec une couleur par défaut ou null si "pas de couleur" est la préférence initiale
-    const [selectedColor, setSelectedColor] = useState<string | null>(DEFAULT_COLOR_VALUE); // Bleu par défaut
+    const [selectedColor, setSelectedColor] = useState<string | null>(DEFAULT_COLOR_VALUE);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
         setError(null);
 
         if (!name.trim()) {
-            setError("Project name is required.");
+            setError("Project name is required");
             return;
         }
-        if (sessionStatus !== "authenticated" || !session) {
-            setError("User session not available. Please sign in again.");
+
+        if (!session) {
+            setError("Session not available");
             return;
         }
+
         setIsSubmitting(true);
+        try {
+            const projectData: CreateProjectPayload = {
+                name: name.trim(),
+                color: selectedColor
+            };
 
-        const projectData: CreateProjectPayload = {
-            name: name.trim(),
-            color: selectedColor, // `selectedColor` est déjà string | null
-        };
+            const result = await createProject(session, projectData);
+            if (isApiError(result)) {
+                throw new Error(result.message);
+            }
 
-        const result = await createProject(session, projectData);
-
-        if (isApiError(result)) {
-            setError(result.message || "Failed to create project. Please try again.");
-        } else {
+            toast.success("Project created successfully");
             onProjectCreated(result);
             setName("");
-            setSelectedColor(DEFAULT_COLOR_VALUE); // Réinitialiser à la couleur par défaut
-            // if (onCancel) onCancel(); // Dépend si vous voulez fermer automatiquement
+            setSelectedColor(DEFAULT_COLOR_VALUE);
+            if (onCancel) onCancel();
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Failed to create project";
+            setError(message);
+            toast.error("Creation failed", {
+                description: message
+            });
+        } finally {
+            setIsSubmitting(false);
         }
-        setIsSubmitting(false);
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4 p-4 border border-gray-200 rounded-lg shadow-sm mb-6 bg-white">
-            <h3 className="text-lg font-medium text-gray-800 border-b pb-2">Create New Project</h3>
+        <Card>
+            <CardHeader>
+                <CardTitle>Create New Project</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    {error && (
+                        <div className="text-sm text-destructive p-2 bg-destructive/10 rounded-md">
+                            {error}
+                        </div>
+                    )}
 
-            {error && (
-                <div className="p-3 my-2 text-sm text-red-700 bg-red-100 rounded-md border border-red-200" role="alert">
-                    <span className="font-medium">Error:</span> {error}
-                </div>
-            )}
-
-            <div>
-                <label htmlFor="projectName" className="block text-sm font-medium text-gray-700 mb-1">
-                    Project Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                    type="text"
-                    id="projectName"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:bg-gray-50"
-                    placeholder="e.g., Marketing Campaign Q3"
-                    required
-                    disabled={isSubmitting || sessionStatus !== "authenticated"}
-                />
-            </div>
-
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Color <span className="text-xs text-gray-500">(optional)</span>
-                </label>
-                <div className="flex flex-wrap gap-2 items-center">
-                    {PREDEFINED_COLORS.map((colorOption) => (
-                        <button
-                            type="button"
-                            key={colorOption.value}
-                            title={colorOption.name}
-                            onClick={() => setSelectedColor(colorOption.value)}
-                            className={`w-7 h-7 rounded-full border-2 transition-all duration-150 ease-in-out 
-                                        ${selectedColor === colorOption.value
-                                    ? 'ring-2 ring-offset-1 ring-blue-500 border-blue-500 scale-110'
-                                    : 'border-gray-300 hover:border-gray-400'
-                                }`}
-                            style={{ backgroundColor: colorOption.value }}
-                            disabled={isSubmitting || sessionStatus !== "authenticated"}
+                    <div className="space-y-2">
+                        <Label htmlFor="project-name">Project Name</Label>
+                        <Input
+                            id="project-name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="Enter project name"
+                            required
                         />
-                    ))}
-                    <button // Bouton pour "pas de couleur"
-                        type="button"
-                        title="No Color"
-                        onClick={() => setSelectedColor(null)}
-                        className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-gray-400
-                                    transition-all duration-150 ease-in-out
-                                    ${selectedColor === null
-                                ? 'ring-2 ring-offset-1 ring-blue-500 bg-gray-100 border-blue-500 scale-110'
-                                : 'border-gray-300 hover:border-gray-400 bg-white'
-                            }`}
-                        disabled={isSubmitting || sessionStatus !== "authenticated"}
-                        aria-label="No color"
-                    >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                </div>
-            </div>
+                    </div>
 
-            <div className="flex items-center space-x-3 pt-2">
-                <button
-                    type="submit"
-                    disabled={isSubmitting || sessionStatus !== "authenticated"}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                    {isSubmitting ? "Creating..." : "Create Project"}
-                </button>
-                {onCancel && (
-                    <button
-                        type="button"
-                        onClick={onCancel}
-                        disabled={isSubmitting}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-                    >
-                        Cancel
-                    </button>
-                )}
-            </div>
-        </form>
+                    <div className="space-y-2">
+                        <Label>Color (optional)</Label>
+                        <ColorPicker
+                            selectedColor={selectedColor}
+                            onColorChange={setSelectedColor}
+                        />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-4">
+                        {onCancel && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={onCancel}
+                                disabled={isSubmitting}
+                            >
+                                Cancel
+                            </Button>
+                        )}
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
+                            Create Project
+                        </Button>
+                    </div>
+                </form>
+            </CardContent>
+        </Card>
     );
 }

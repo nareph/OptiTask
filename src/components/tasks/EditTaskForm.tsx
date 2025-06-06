@@ -1,19 +1,25 @@
-// src/components/tasks/EditTaskForm.tsx
-"use client";
-
+'use client';
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { apiRequest, isApiError } from "@/services/common";
-import { createLabel } from "@/services/labelApi"; // createLabel et CreateLabelPayload sont nécessaires
+import { createLabel } from "@/services/labelApi";
 import { updateTask } from "@/services/taskApi";
 import { addLabelToTask, removeLabelFromTask } from "@/services/taskLabelApi";
 import { CreateLabelPayload, Label, Project, TaskWithLabels, UpdateTaskData } from "@/services/types";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { FormEvent, useEffect, useState } from "react";
-// Importez CreatableSelect au lieu de Select
 import { GroupBase, MultiValue, StylesConfig } from 'react-select';
 import makeAnimated from 'react-select/animated';
 import CreatableSelect from 'react-select/creatable';
-import { Modal } from "../ui/Modal";
-
 
 interface EditTaskFormProps {
     taskToEdit: TaskWithLabels;
@@ -21,15 +27,15 @@ interface EditTaskFormProps {
     onCancel: () => void;
     projects: Project[];
     allUserLabels: Label[];
-    onLabelCreatedInForm: (newLabel: Label) => void; // Nouvelle prop pour gérer la création de label
+    onLabelCreatedInForm: (newLabel: Label) => void;
     areParentLabelsLoading?: boolean;
 }
 
 interface LabelOption {
-    readonly value: string; // label.id
-    readonly label: string; // label.name
+    readonly value: string;
+    readonly label: string;
     readonly color?: string | null;
-    readonly __isNew__?: boolean; // Ajouté par CreatableSelect pour les nouvelles options
+    readonly __isNew__?: boolean;
 }
 
 const animatedComponents = makeAnimated();
@@ -76,21 +82,22 @@ export default function EditTaskForm({
     onCancel,
     projects,
     allUserLabels,
-    onLabelCreatedInForm, // Récupérer la nouvelle prop
+    onLabelCreatedInForm,
     areParentLabelsLoading = false
 }: EditTaskFormProps) {
     const { data: session, status: sessionStatus } = useSession();
-
     const [title, setTitle] = useState(taskToEdit.title);
     const [description, setDescription] = useState(taskToEdit.description || "");
     const [projectId, setProjectId] = useState(taskToEdit.project_id || "");
     const [status, setStatus] = useState(taskToEdit.status);
-    const [dueDate, setDueDate] = useState(taskToEdit.due_date || "");
+    const [dueDate, setDueDate] = useState<Date | undefined>(
+        taskToEdit.due_date ? new Date(taskToEdit.due_date) : undefined
+    );
     const [selectedLabelOptions, setSelectedLabelOptions] = useState<MultiValue<LabelOption>>(() =>
         taskToEdit.labels.map(l => ({ value: l.id, label: l.name, color: l.color }))
     );
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isCreatingLabel, setIsCreatingLabel] = useState(false); // Pour le chargement de création de label
+    const [isCreatingLabel, setIsCreatingLabel] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -98,7 +105,7 @@ export default function EditTaskForm({
         setDescription(taskToEdit.description || "");
         setProjectId(taskToEdit.project_id || "");
         setStatus(taskToEdit.status);
-        setDueDate(taskToEdit.due_date || "");
+        setDueDate(taskToEdit.due_date ? new Date(taskToEdit.due_date) : undefined);
         setSelectedLabelOptions(taskToEdit.labels.map(l => ({ value: l.id, label: l.name, color: l.color })));
     }, [taskToEdit]);
 
@@ -110,23 +117,21 @@ export default function EditTaskForm({
 
     const handleCreateLabel = async (inputValue: string) => {
         if (!session || !inputValue.trim()) return;
-        setError(null); // Clear previous errors
+        setError(null);
         setIsCreatingLabel(true);
 
-        // Vous pouvez choisir une couleur par défaut ou laisser l'utilisateur la choisir plus tard
         const newLabelData: CreateLabelPayload = { name: inputValue.trim(), color: null };
         const result = await createLabel(session, newLabelData);
 
         setIsCreatingLabel(false);
         if (!isApiError(result)) {
-            onLabelCreatedInForm(result); // Notifier le parent (DashboardPage)
+            onLabelCreatedInForm(result);
             const newOption: LabelOption = { value: result.id, label: result.name, color: result.color };
-            setSelectedLabelOptions(prev => [...prev, newOption]); // Ajouter et sélectionner le nouveau label
+            setSelectedLabelOptions(prev => [...prev, newOption]);
         } else {
             setError(result.message || "Failed to create new label.");
         }
     };
-
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -146,7 +151,7 @@ export default function EditTaskForm({
         const newProjectIdVal = projectId.trim() === "" ? null : projectId.trim();
         if (newProjectIdVal !== taskToEdit.project_id) { updateTaskData.project_id = newProjectIdVal; taskDetailsActuallyChanged = true; }
         if (status !== taskToEdit.status) { updateTaskData.status = status; taskDetailsActuallyChanged = true; }
-        const newDueDateVal = dueDate.trim() === "" ? null : dueDate.trim();
+        const newDueDateVal = dueDate ? null : dueDate;
         if (newDueDateVal !== taskToEdit.due_date) { updateTaskData.due_date = newDueDateVal; taskDetailsActuallyChanged = true; }
 
         let currentTaskStateFromApi = { ...taskToEdit };
@@ -188,14 +193,13 @@ export default function EditTaskForm({
                 setError(error || finalTaskStateResult.message || "Failed to fetch final updated task state.");
                 onTaskUpdated(currentTaskStateFromApi);
             } else {
-                onTaskUpdated(finalTaskStateResult); // OnTaskUpdated devrait gérer l'affichage de l'erreur s'il y en a une
+                onTaskUpdated(finalTaskStateResult);
             }
-        } else if (!error) { // S'il n'y a eu aucun changement et aucune erreur
+        } else if (!error) {
             onCancel();
         }
         setIsSubmitting(false);
     };
-
 
     return (
         <Modal
@@ -205,81 +209,159 @@ export default function EditTaskForm({
             size="lg"
         >
             <form onSubmit={handleSubmit} className="space-y-4">
-                {error && <p className="text-sm text-red-600 bg-red-100 p-3 rounded-md border border-red-300">{error}</p>}
-
-                {/* Champs du formulaire (title, description, project, status, dueDate) - inchangés */}
-                <div>
-                    <label htmlFor="editTaskTitle" className="block text-xs font-medium text-gray-600 mb-0.5">Title <span className="text-red-500">*</span></label>
-                    <input type="text" id="editTaskTitle" value={title} onChange={(e) => setTitle(e.target.value)} required disabled={isSubmitting}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
-                </div>
-                <div>
-                    <label htmlFor="editTaskDescription" className="block text-xs font-medium text-gray-600 mb-0.5">Description</label>
-                    <textarea id="editTaskDescription" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} disabled={isSubmitting}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                        <label htmlFor="editTaskProjectId" className="block text-xs font-medium text-gray-600 mb-0.5">Project</label>
-                        <select id="editTaskProjectId" value={projectId} onChange={(e) => setProjectId(e.target.value)} disabled={isSubmitting}
-                            className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white">
-                            <option value="">No Project</option>
-                            {projects.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="editTaskStatus" className="block text-xs font-medium text-gray-600 mb-0.5">Status</label>
-                        <select id="editTaskStatus" value={status} onChange={(e) => setStatus(e.target.value)} disabled={isSubmitting}
-                            className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white">
-                            <option value="todo">To Do</option> <option value="inprogress">In Progress</option> <option value="done">Done</option>
-                        </select>
-                    </div>
-                </div>
-                <div>
-                    <label htmlFor="editTaskDueDate" className="block text-xs font-medium text-gray-600 mb-0.5">Due Date</label>
-                    <input type="date" id="editTaskDueDate" value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={isSubmitting}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
-                </div>
-                {/* Fin des champs inchangés */}
+                {error && (
+                    <Alert variant="destructive">
+                        <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                )}
 
                 <div>
-                    <label htmlFor="taskLabels" className="block text-xs font-medium text-gray-600 mb-0.5">Labels</label>
-                    {areParentLabelsLoading ? <p className="text-xs text-gray-500 py-1">Loading labels...</p> : (
-                        <CreatableSelect<LabelOption, true, GroupBase<LabelOption>> // Utiliser CreatableSelect
+                    <label htmlFor="editTaskTitle" className="block text-sm font-medium mb-1">
+                        Title <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                        id="editTaskTitle"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        required
+                        disabled={isSubmitting}
+                    />
+                </div>
+
+                <div>
+                    <label htmlFor="editTaskDescription" className="block text-sm font-medium mb-1">
+                        Description
+                    </label>
+                    <Textarea
+                        id="editTaskDescription"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        rows={3}
+                        disabled={isSubmitting}
+                    />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="editTaskProjectId" className="block text-sm font-medium mb-1">
+                            Project
+                        </label>
+                        <Select
+                            value={projectId}
+                            onValueChange={setProjectId}
+                            disabled={isSubmitting}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="No Project" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="">No Project</SelectItem>
+                                {projects.map(p => (
+                                    <SelectItem key={p.id} value={p.id}>
+                                        {p.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div>
+                        <label htmlFor="editTaskStatus" className="block text-sm font-medium mb-1">
+                            Status
+                        </label>
+                        <Select
+                            value={status}
+                            onValueChange={setStatus}
+                            disabled={isSubmitting}
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="todo">To Do</SelectItem>
+                                <SelectItem value="inprogress">In Progress</SelectItem>
+                                <SelectItem value="done">Done</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium mb-1">
+                        Due Date
+                    </label>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant="outline"
+                                className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !dueDate && "text-muted-foreground"
+                                )}
+                                disabled={isSubmitting}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={dueDate}
+                                onSelect={setDueDate}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+                </div>
+
+                <div>
+                    <label htmlFor="taskLabels" className="block text-sm font-medium mb-1">
+                        Labels
+                    </label>
+                    {areParentLabelsLoading ? (
+                        <div className="text-sm text-muted-foreground py-2">Loading labels...</div>
+                    ) : (
+                        <CreatableSelect<LabelOption, true, GroupBase<LabelOption>>
                             id="taskLabels"
                             isMulti
                             components={animatedComponents}
                             options={userLabelOptions}
                             value={selectedLabelOptions}
-                            onChange={(selectedOptions: MultiValue<LabelOption>) => {
-                                // Gérer la sélection normale
-                                setSelectedLabelOptions(selectedOptions);
-                            }}
-                            onCreateOption={handleCreateLabel} // Gérer la création d'une nouvelle option
-                            formatCreateLabel={(inputValue) => `Create new label: "${inputValue}"`} // Texte pour la nouvelle option
+                            onChange={(selectedOptions) => setSelectedLabelOptions(selectedOptions)}
+                            onCreateOption={handleCreateLabel}
                             className="text-sm react-select-container"
                             classNamePrefix="react-select"
                             styles={colorStyles}
-                            isDisabled={isSubmitting || isCreatingLabel || areParentLabelsLoading} // Désactiver pendant la création de label aussi
-                            isLoading={isCreatingLabel || areParentLabelsLoading} // Afficher le spinner si création de label ou chargement parent
+                            isDisabled={isSubmitting || isCreatingLabel || areParentLabelsLoading}
+                            isLoading={isCreatingLabel || areParentLabelsLoading}
                             placeholder="Select or create labels..."
                             noOptionsMessage={({ inputValue }) =>
-                                !inputValue && allUserLabels.length > 0 ? "Start typing or create new" :
-                                    allUserLabels.length === 0 ? "No labels available. Type to create." :
-                                        "No labels match. Type to create."
+                                !inputValue && allUserLabels.length > 0
+                                    ? "Start typing or create new"
+                                    : allUserLabels.length === 0
+                                        ? "No labels available. Type to create."
+                                        : "No labels match. Type to create."
                             }
                         />
                     )}
                 </div>
-                <div className="flex items-center justify-end space-x-3 pt-4 border-t mt-4">
-                    <button type="button" onClick={onCancel} disabled={isSubmitting || isCreatingLabel}
-                        className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">
+
+                <div className="flex justify-end space-x-3 pt-4">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={onCancel}
+                        disabled={isSubmitting || isCreatingLabel}
+                    >
                         Cancel
-                    </button>
-                    <button type="submit" disabled={isSubmitting || isCreatingLabel || sessionStatus !== "authenticated" || areParentLabelsLoading}
-                        className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
-                        {isSubmitting ? "Saving..." : (isCreatingLabel ? "Creating Label..." : "Save Changes")}
-                    </button>
+                    </Button>
+                    <Button
+                        type="submit"
+                        disabled={isSubmitting || isCreatingLabel || sessionStatus !== "authenticated" || areParentLabelsLoading}
+                    >
+                        {isSubmitting ? "Saving..." : isCreatingLabel ? "Creating Label..." : "Save Changes"}
+                    </Button>
                 </div>
             </form>
         </Modal>

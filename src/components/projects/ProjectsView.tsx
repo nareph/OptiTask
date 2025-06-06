@@ -1,10 +1,13 @@
+// src/components/projects/ProjectsView.tsx
 "use client";
 
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label, Project } from "@/services/types";
 import { useState } from "react";
 import LabelManager from "../labels/LabelManager";
-import ProjectList from "./ProjectList";
 import TaskList from "../tasks/TaskList";
+import ProjectList from "./ProjectList";
 
 interface ProjectsViewProps {
     projects: Project[];
@@ -13,6 +16,7 @@ interface ProjectsViewProps {
     onLabelCreated: (newLabel: Label) => void;
     isLoading: boolean;
     error: string | null;
+    onPomodoroStateChange: (isActive: boolean) => void;
 }
 
 export default function ProjectsView({
@@ -21,56 +25,46 @@ export default function ProjectsView({
     onDataChanged,
     onLabelCreated,
     isLoading,
-    error
+    error,
+    onPomodoroStateChange
 }: ProjectsViewProps) {
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-    const [activeTab, setActiveTab] = useState<'projects' | 'labels'>('projects');
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="lg:col-span-4 xl:col-span-3 space-y-6">
-                <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                    <div className="flex border-b">
-                        <button
-                            className={`flex-1 py-3 font-medium text-sm ${activeTab === 'projects' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
-                            onClick={() => setActiveTab('projects')}
-                        >
-                            Projects
-                        </button>
-                        <button
-                            className={`flex-1 py-3 font-medium text-sm ${activeTab === 'labels' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
-                            onClick={() => setActiveTab('labels')}
-                        >
-                            Labels
-                        </button>
-                    </div>
+                <Card>
+                    <Tabs defaultValue="projects" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="projects">Projects</TabsTrigger>
+                            <TabsTrigger value="labels">Labels</TabsTrigger>
+                        </TabsList>
 
-                    <div className="p-4">
-                        {activeTab === 'projects' ? (
+                        <TabsContent value="projects">
                             <ProjectList
                                 projects={projects}
                                 isLoading={isLoading}
                                 error={error}
                                 onDataChanged={onDataChanged}
-                                onProjectSelect={(projectId) => {
-                                    setSelectedProject(projectId ? projects.find(p => p.id === projectId) || null : null);
-                                }}
-                                selectedProjectId={selectedProject?.id || null}
+                                onProjectSelect={(project) => setSelectedProject(project)}
+                                selectedProject={selectedProject}
                             />
-                        ) : (
+                        </TabsContent>
+
+                        <TabsContent value="labels">
                             <LabelManager
                                 allUserLabels={allUserLabels}
                                 isLoadingLabels={isLoading}
                                 labelsError={error}
                                 onDataChanged={onDataChanged}
                             />
-                        )}
-                    </div>
-                </div>
+                        </TabsContent>
+                    </Tabs>
+                </Card>
             </div>
 
             <div className="lg:col-span-8 xl:col-span-9">
-                <div className="p-4 bg-white shadow-md rounded-lg">
+                <Card>
                     <TaskList
                         projectIdForFilter={selectedProject?.id || null}
                         projectNameForFilter={selectedProject?.name || "All Tasks"}
@@ -79,8 +73,9 @@ export default function ProjectsView({
                         onTasksDataChanged={onDataChanged}
                         onLabelCreatedInTaskForm={onLabelCreated}
                         areParentResourcesLoading={isLoading}
+                        onPomodoroStateChange={onPomodoroStateChange}
                     />
-                </div>
+                </Card>
             </div>
         </div>
     );

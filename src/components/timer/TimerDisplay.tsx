@@ -1,13 +1,14 @@
 // src/components/timer/TimerDisplay.tsx
-
-import { Button } from "../ui/Button"; // Assurez-vous que ce chemin est correct
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { Badge } from "../ui/badge";
 
 interface TimerDisplayProps {
     time: number;
     mode: 'pomodoro' | 'custom';
-    currentSessionType?: 'work' | 'shortBreak' | 'longBreak'; // Ajouté et optionnel
+    currentSessionType?: 'work' | 'shortBreak' | 'longBreak';
     onModeChange: (mode: 'pomodoro' | 'custom') => void;
-    isTimerActive: boolean; // Ajouté pour désactiver les boutons de mode si le timer tourne
+    isTimerActive: boolean;
 }
 
 export const TimerDisplay = ({
@@ -15,7 +16,7 @@ export const TimerDisplay = ({
     mode,
     currentSessionType,
     onModeChange,
-    isTimerActive // Nouvelle prop
+    isTimerActive
 }: TimerDisplayProps) => {
     const minutes = Math.floor(time / 60);
     const seconds = time % 60;
@@ -24,61 +25,77 @@ export const TimerDisplay = ({
 
     let sessionLabel = "";
     let subMessage = "";
+    let sessionVariant: "default" | "secondary" | "destructive" | "outline" = "default";
 
     if (mode === 'pomodoro' && currentSessionType) {
         if (currentSessionType === 'work') {
             sessionLabel = "Work Session";
             subMessage = "Time to focus!";
+            sessionVariant = "default";
         } else if (currentSessionType === 'shortBreak') {
             sessionLabel = "Short Break";
             subMessage = "Take a quick breather.";
+            sessionVariant = "secondary";
         } else if (currentSessionType === 'longBreak') {
             sessionLabel = "Long Break";
             subMessage = "Time for a longer rest.";
+            sessionVariant = "secondary";
         }
     } else if (mode === 'custom') {
         sessionLabel = "Custom Timer";
-        // Pour le mode custom, si le timer tourne, on affiche "Tracking..."
-        // Sinon, on peut afficher un message pour démarrer ou la durée si déjà configurée.
-        // Pour l'instant, on laisse simple.
+        sessionVariant = "outline";
     }
 
+    const getTimeColor = () => {
+        if (mode === 'pomodoro' && currentSessionType === 'work') return 'text-blue-600';
+        if (mode === 'pomodoro' && (currentSessionType === 'shortBreak' || currentSessionType === 'longBreak')) return 'text-green-600';
+        return 'text-foreground';
+    };
 
     return (
-        <div className="text-center space-y-3"> {/* Ajusté space-y */}
+        <div className="text-center space-y-4">
             <div className="flex justify-center gap-2">
                 <Button
-                    variant={mode === 'pomodoro' ? 'primary' : 'outline'}
+                    variant={mode === 'pomodoro' ? 'default' : 'outline'}
                     onClick={() => onModeChange('pomodoro')}
                     size="sm"
-                    disabled={isTimerActive && mode !== 'pomodoro'} // Désactiver si le timer est actif et qu'on n'est pas déjà dans ce mode
-                    className={isTimerActive && mode !== 'pomodoro' ? "opacity-50 cursor-not-allowed" : ""}
+                    disabled={isTimerActive && mode !== 'pomodoro'}
+                    className={cn(
+                        "transition-all duration-200",
+                        isTimerActive && mode !== 'pomodoro' && "opacity-50 cursor-not-allowed"
+                    )}
                 >
-                    Pomodoro
+                    🍅 Pomodoro
                 </Button>
                 <Button
-                    variant={mode === 'custom' ? 'primary' : 'outline'}
+                    variant={mode === 'custom' ? 'default' : 'outline'}
                     onClick={() => onModeChange('custom')}
                     size="sm"
-                    disabled={isTimerActive && mode !== 'custom'} // Désactiver si le timer est actif et qu'on n'est pas déjà dans ce mode
-                    className={isTimerActive && mode !== 'custom' ? "opacity-50 cursor-not-allowed" : ""}
+                    disabled={isTimerActive && mode !== 'custom'}
+                    className={cn(
+                        "transition-all duration-200",
+                        isTimerActive && mode !== 'custom' && "opacity-50 cursor-not-allowed"
+                    )}
                 >
-                    Custom
+                    ⏱️ Custom
                 </Button>
             </div>
 
-            {/* Affichage du label de session si défini */}
             {sessionLabel && (
-                <div className="mt-2"> {/* Espace au-dessus du label */}
-                    <p className="text-lg font-semibold text-gray-700">{sessionLabel}</p>
-                    {subMessage && <p className="text-xs text-gray-500">{subMessage}</p>}
+                <div className="space-y-2">
+                    <Badge variant={sessionVariant} className="text-sm px-3 py-1">
+                        {sessionLabel}
+                    </Badge>
+                    {subMessage && (
+                        <p className="text-xs text-muted-foreground">{subMessage}</p>
+                    )}
                 </div>
             )}
 
-            <div className={`text-6xl font-mono font-bold ${mode === 'pomodoro' && currentSessionType === 'work' ? 'text-blue-600' :
-                    mode === 'pomodoro' && (currentSessionType === 'shortBreak' || currentSessionType === 'longBreak') ? 'text-green-600' :
-                        'text-gray-800' // Couleur par défaut ou pour custom
-                }`}>
+            <div className={cn(
+                "text-6xl font-mono font-bold transition-colors duration-200",
+                getTimeColor()
+            )}>
                 {formatTime(minutes)}:{formatTime(seconds)}
             </div>
         </div>

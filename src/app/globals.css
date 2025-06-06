@@ -1,28 +1,82 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+  /* Variables OptiTask - Couleurs des tâches */
+  --color-task-todo: var(--task-todo);
+  --color-task-todo-foreground: var(--task-todo-foreground);
+  --color-task-inprogress: var(--task-inprogress);
+  --color-task-inprogress-foreground: var(--task-inprogress-foreground);
+  --color-task-done: var(--task-done);
+  --color-task-done-foreground: var(--task-done-foreground);
+  --color-task-priority-high: var(--task-priority-high);
+  --color-task-priority-high-foreground: var(--task-priority-high-foreground);
+  --color-task-priority-medium: var(--task-priority-medium);
+  --color-task-priority-medium-foreground: var(--task-priority-medium-foreground);
+  --color-task-priority-low: var(--task-priority-low);
+  --color-task-priority-low-foreground: var(--task-priority-low-foreground);
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* Variables OptiTask - Interface */
+  --color-filters-background: var(--filters-background);
+  --color-filters-foreground: var(--filters-foreground);
+  --color-productivity-boost: var(--productivity-boost);
+  --color-productivity-boost-foreground: var(--productivity-boost-foreground);
+  --color-analytics-accent: var(--analytics-accent);
+  --color-analytics-accent-foreground: var(--analytics-accent-foreground);
+  --color-automation-accent: var(--automation-accent);
+  --color-automation-accent-foreground: var(--automation-accent-foreground);
+
+  /* Variables OptiTask - États système */
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-timer-active: var(--timer-active);
+  --color-timer-active-foreground: var(--timer-active-foreground);
+  --color-timer-paused: var(--timer-paused);
+  --color-timer-paused-foreground: var(--timer-paused-foreground);
 }
 
 @keyframes fadeIn {
@@ -37,6 +91,454 @@ body {
   }
 }
 
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
 .animate-fadeIn {
-  animation: fadeIn 0.2s ease-out forwards;
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
+.animate-pulse-soft {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+:root {
+  --radius: 0.75rem;
+
+  /* Couleurs de base - Thème moderne et professionnel */
+  --background: oklch(0.99 0.005 240);
+  /* Blanc légèrement bleuté */
+  --foreground: oklch(0.15 0.01 240);
+  /* Gris très foncé avec nuance bleue */
+  --card: oklch(0.985 0.005 240);
+  /* Blanc card avec subtile nuance */
+  --card-foreground: oklch(0.15 0.01 240);
+  --popover: oklch(0.985 0.005 240);
+  --popover-foreground: oklch(0.15 0.01 240);
+
+  /* Couleur primaire - Bleu moderne et vibrant pour productivité */
+  --primary: oklch(0.55 0.18 240);
+  /* Bleu OptiTask principal */
+  --primary-foreground: oklch(0.98 0.005 240);
+
+  /* Couleurs secondaires */
+  --secondary: oklch(0.96 0.01 240);
+  /* Gris très clair bleuté */
+  --secondary-foreground: oklch(0.25 0.02 240);
+  --muted: oklch(0.94 0.015 240);
+  /* Gris clair pour éléments discrets */
+  --muted-foreground: oklch(0.45 0.02 240);
+  --accent: oklch(0.62 0.15 280);
+  /* Violet-bleu pour accents */
+  --accent-foreground: oklch(0.98 0.005 280);
+
+  /* États système */
+  --destructive: oklch(0.6 0.22 15);
+  /* Rouge pour suppressions */
+  --border: oklch(0.88 0.02 240);
+  /* Bordures subtiles */
+  --input: oklch(0.96 0.01 240);
+  /* Arrière-plan inputs */
+  --ring: oklch(0.55 0.18 240);
+  /* Focus ring */
+
+  /* Couleurs pour graphiques/analytics */
+  --chart-1: oklch(0.55 0.18 240);
+  /* Bleu principal */
+  --chart-2: oklch(0.62 0.15 280);
+  /* Violet */
+  --chart-3: oklch(0.65 0.18 160);
+  /* Vert menthe */
+  --chart-4: oklch(0.68 0.16 50);
+  /* Orange */
+  --chart-5: oklch(0.58 0.2 340);
+  /* Rose */
+
+  /* Sidebar - Interface latérale */
+  --sidebar: oklch(0.97 0.01 240);
+  --sidebar-foreground: oklch(0.25 0.02 240);
+  --sidebar-primary: oklch(0.55 0.18 240);
+  --sidebar-primary-foreground: oklch(0.98 0.005 240);
+  --sidebar-accent: oklch(0.94 0.015 240);
+  --sidebar-accent-foreground: oklch(0.25 0.02 240);
+  --sidebar-border: oklch(0.88 0.02 240);
+  --sidebar-ring: oklch(0.55 0.18 240);
+
+  /* OptiTask - Couleurs des tâches avec meilleur contraste */
+  --task-todo: oklch(0.95 0.03 15);
+  /* Rouge très clair pour TODO */
+  --task-todo-foreground: oklch(0.4 0.18 15);
+  /* Rouge foncé lisible */
+  --task-inprogress: oklch(0.95 0.03 50);
+  /* Orange très clair pour EN COURS */
+  --task-inprogress-foreground: oklch(0.4 0.18 50);
+  /* Orange foncé lisible */
+  --task-done: oklch(0.95 0.03 160);
+  /* Vert très clair pour TERMINÉ */
+  --task-done-foreground: oklch(0.35 0.18 160);
+  /* Vert foncé lisible */
+
+  /* OptiTask - Priorités des tâches */
+  --task-priority-high: oklch(0.94 0.04 15);
+  /* Rouge clair pour priorité haute */
+  --task-priority-high-foreground: oklch(0.35 0.2 15);
+  --task-priority-medium: oklch(0.94 0.04 50);
+  /* Orange clair pour priorité moyenne */
+  --task-priority-medium-foreground: oklch(0.35 0.2 50);
+  --task-priority-low: oklch(0.94 0.04 160);
+  /* Vert clair pour priorité basse */
+  --task-priority-low-foreground: oklch(0.35 0.2 160);
+
+  /* OptiTask - Interface spécialisée */
+  --filters-background: oklch(0.96 0.01 240);
+  /* Arrière-plan filtres */
+  --filters-foreground: oklch(0.4 0.02 240);
+  /* Texte filtres */
+  --productivity-boost: oklch(0.65 0.15 160);
+  /* Vert pour gains de productivité */
+  --productivity-boost-foreground: oklch(0.98 0.005 160);
+  --analytics-accent: oklch(0.62 0.15 280);
+  /* Violet pour analytics */
+  --analytics-accent-foreground: oklch(0.98 0.005 280);
+  --automation-accent: oklch(0.58 0.16 320);
+  /* Magenta pour automation */
+  --automation-accent-foreground: oklch(0.98 0.005 320);
+
+  /* OptiTask - États système améliorés */
+  --warning: oklch(0.7 0.16 50);
+  /* Orange pour avertissements */
+  --warning-foreground: oklch(0.2 0.08 50);
+  --info: oklch(0.65 0.15 230);
+  /* Bleu pour informations */
+  --info-foreground: oklch(0.2 0.08 230);
+  --success: oklch(0.65 0.15 160);
+  /* Vert pour succès */
+  --success-foreground: oklch(0.2 0.08 160);
+
+  /* OptiTask - Timer et suivi du temps */
+  --timer-active: oklch(0.65 0.18 160);
+  /* Vert actif pour timer en cours */
+  --timer-active-foreground: oklch(0.98 0.005 160);
+  --timer-paused: oklch(0.68 0.16 50);
+  /* Orange pour timer en pause */
+  --timer-paused-foreground: oklch(0.98 0.005 50);
+}
+
+.dark {
+  /* Couleurs de base - Mode sombre moderne */
+  --background: oklch(0.11 0.015 240);
+  /* Fond sombre avec nuance bleue */
+  --foreground: oklch(0.9 0.01 240);
+  /* Texte clair */
+  --card: oklch(0.15 0.02 240);
+  /* Cards sombres */
+  --card-foreground: oklch(0.9 0.01 240);
+  --popover: oklch(0.15 0.02 240);
+  --popover-foreground: oklch(0.9 0.01 240);
+
+  /* Couleur primaire ajustée pour le dark mode */
+  --primary: oklch(0.65 0.2 240);
+  /* Bleu plus clair en mode sombre */
+  --primary-foreground: oklch(0.05 0.01 240);
+
+  /* Couleurs secondaires dark mode */
+  --secondary: oklch(0.2 0.02 240);
+  --secondary-foreground: oklch(0.85 0.01 240);
+  --muted: oklch(0.18 0.02 240);
+  --muted-foreground: oklch(0.6 0.015 240);
+  --accent: oklch(0.7 0.18 280);
+  /* Violet plus vif en mode sombre */
+  --accent-foreground: oklch(0.05 0.01 280);
+
+  /* États système dark mode */
+  --destructive: oklch(0.7 0.2 15);
+  --border: oklch(0.25 0.02 240);
+  --input: oklch(0.18 0.02 240);
+  --ring: oklch(0.65 0.2 240);
+
+  /* Graphiques ajustés pour dark mode */
+  --chart-1: oklch(0.65 0.2 240);
+  --chart-2: oklch(0.7 0.18 280);
+  --chart-3: oklch(0.72 0.2 160);
+  --chart-4: oklch(0.75 0.18 50);
+  --chart-5: oklch(0.68 0.22 340);
+
+  /* Sidebar dark mode */
+  --sidebar: oklch(0.13 0.015 240);
+  --sidebar-foreground: oklch(0.85 0.01 240);
+  --sidebar-primary: oklch(0.65 0.2 240);
+  --sidebar-primary-foreground: oklch(0.05 0.01 240);
+  --sidebar-accent: oklch(0.18 0.02 240);
+  --sidebar-accent-foreground: oklch(0.85 0.01 240);
+  --sidebar-border: oklch(0.25 0.02 240);
+  --sidebar-ring: oklch(0.65 0.2 240);
+
+  /* OptiTask - Tâches en mode sombre */
+  --task-todo: oklch(0.2 0.04 15);
+  --task-todo-foreground: oklch(0.8 0.12 15);
+  --task-inprogress: oklch(0.2 0.04 50);
+  --task-inprogress-foreground: oklch(0.8 0.12 50);
+  --task-done: oklch(0.2 0.04 160);
+  --task-done-foreground: oklch(0.8 0.12 160);
+
+  /* OptiTask - Priorités en mode sombre */
+  --task-priority-high: oklch(0.25 0.05 15);
+  --task-priority-high-foreground: oklch(0.85 0.15 15);
+  --task-priority-medium: oklch(0.25 0.05 50);
+  --task-priority-medium-foreground: oklch(0.85 0.15 50);
+  --task-priority-low: oklch(0.25 0.05 160);
+  --task-priority-low-foreground: oklch(0.85 0.15 160);
+
+  /* OptiTask - Interface spécialisée dark mode */
+  --filters-background: oklch(0.18 0.02 240);
+  --filters-foreground: oklch(0.7 0.015 240);
+  --productivity-boost: oklch(0.7 0.18 160);
+  --productivity-boost-foreground: oklch(0.05 0.01 160);
+  --analytics-accent: oklch(0.7 0.18 280);
+  --analytics-accent-foreground: oklch(0.05 0.01 280);
+  --automation-accent: oklch(0.68 0.2 320);
+  --automation-accent-foreground: oklch(0.05 0.01 320);
+
+  /* OptiTask - États système dark mode */
+  --warning: oklch(0.75 0.18 50);
+  --warning-foreground: oklch(0.1 0.05 50);
+  --info: oklch(0.72 0.18 230);
+  --info-foreground: oklch(0.1 0.05 230);
+  --success: oklch(0.7 0.18 160);
+  --success-foreground: oklch(0.1 0.05 160);
+
+  /* OptiTask - Timer dark mode */
+  --timer-active: oklch(0.7 0.2 160);
+  --timer-active-foreground: oklch(0.05 0.01 160);
+  --timer-paused: oklch(0.75 0.18 50);
+  --timer-paused-foreground: oklch(0.05 0.01 50);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Scrollbar personnalisée */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--muted);
+    border-radius: var(--radius);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--muted-foreground);
+    border-radius: var(--radius);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--primary);
+  }
+}
+
+/* Classes utilitaires OptiTask */
+
+/* États des tâches */
+.bg-task-todo {
+  background-color: var(--task-todo);
+  border-color: var(--task-todo-foreground);
+}
+
+.text-task-todo {
+  color: var(--task-todo-foreground);
+}
+
+.bg-task-inprogress {
+  background-color: var(--task-inprogress);
+  border-color: var(--task-inprogress-foreground);
+}
+
+.text-task-inprogress {
+  color: var(--task-inprogress-foreground);
+}
+
+.bg-task-done {
+  background-color: var(--task-done);
+  border-color: var(--task-done-foreground);
+}
+
+.text-task-done {
+  color: var(--task-done-foreground);
+}
+
+/* Priorités des tâches */
+.bg-priority-high {
+  background-color: var(--task-priority-high);
+  border-color: var(--task-priority-high-foreground);
+}
+
+.text-priority-high {
+  color: var(--task-priority-high-foreground);
+}
+
+.bg-priority-medium {
+  background-color: var(--task-priority-medium);
+  border-color: var(--task-priority-medium-foreground);
+}
+
+.text-priority-medium {
+  color: var(--task-priority-medium-foreground);
+}
+
+.bg-priority-low {
+  background-color: var(--task-priority-low);
+  border-color: var(--task-priority-low-foreground);
+}
+
+.text-priority-low {
+  color: var(--task-priority-low-foreground);
+}
+
+/* Interface spécialisée */
+.bg-filters {
+  background-color: var(--filters-background);
+}
+
+.text-filters {
+  color: var(--filters-foreground);
+}
+
+.bg-productivity-boost {
+  background-color: var(--productivity-boost);
+}
+
+.text-productivity-boost {
+  color: var(--productivity-boost-foreground);
+}
+
+.bg-analytics-accent {
+  background-color: var(--analytics-accent);
+}
+
+.text-analytics-accent {
+  color: var(--analytics-accent-foreground);
+}
+
+.bg-automation-accent {
+  background-color: var(--automation-accent);
+}
+
+.text-automation-accent {
+  color: var(--automation-accent-foreground);
+}
+
+/* États système personnalisés */
+.bg-warning-custom {
+  background-color: var(--warning);
+}
+
+.text-warning-custom {
+  color: var(--warning-foreground);
+}
+
+.bg-info-custom {
+  background-color: var(--info);
+}
+
+.text-info-custom {
+  color: var(--info-foreground);
+}
+
+.bg-success-custom {
+  background-color: var(--success);
+}
+
+.text-success-custom {
+  color: var(--success-foreground);
+}
+
+/* Timer et suivi du temps */
+.bg-timer-active {
+  background-color: var(--timer-active);
+}
+
+.text-timer-active {
+  color: var(--timer-active-foreground);
+}
+
+.bg-timer-paused {
+  background-color: var(--timer-paused);
+}
+
+.text-timer-paused {
+  color: var(--timer-paused-foreground);
+}
+
+/* Classes utilitaires avancées */
+.glass-effect {
+  backdrop-filter: blur(12px);
+  background: oklch(from var(--card) l c h / 0.8);
+  border: 1px solid oklch(from var(--border) l c h / 0.5);
+}
+
+.gradient-primary {
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+}
+
+.gradient-productivity {
+  background: linear-gradient(135deg, var(--productivity-boost), var(--success));
+}
+
+.shadow-glow {
+  box-shadow: 0 0 20px oklch(from var(--primary) l c h / 0.3);
+}
+
+.border-gradient {
+  border: 1px solid;
+  border-image: linear-gradient(45deg, var(--primary), var(--accent)) 1;
 }

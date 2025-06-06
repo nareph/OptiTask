@@ -1,27 +1,40 @@
-// src/components/tasks/AddTaskForm.tsx
-"use client";
-
+'use client';
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { isApiError } from "@/services/common";
 import { createTask } from "@/services/taskApi";
 import { CreateTaskPayload, Project, TaskWithLabels } from "@/services/types";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { FormEvent, useState } from "react";
-import { Modal } from "../ui/Modal";
 
 interface AddTaskFormProps {
     onTaskCreated: (newTask: TaskWithLabels) => void;
     onCancel?: () => void;
     defaultProjectId?: string | null;
-    projects: Project[]; // Requis pour le sélecteur de projet
+    projects: Project[];
 }
 
-export default function AddTaskForm({ onTaskCreated, onCancel, defaultProjectId, projects }: AddTaskFormProps) {
+export default function AddTaskForm({
+    onTaskCreated,
+    onCancel,
+    defaultProjectId,
+    projects
+}: AddTaskFormProps) {
     const { data: session, status: sessionStatus } = useSession();
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [projectId, setProjectId] = useState(defaultProjectId || "");
     const [status, setStatus] = useState("todo");
-    const [dueDate, setDueDate] = useState("");
+    const [dueDate, setDueDate] = useState<Date | undefined>();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -30,6 +43,7 @@ export default function AddTaskForm({ onTaskCreated, onCancel, defaultProjectId,
         setError(null);
         if (!title.trim()) { setError("Task title is required."); return; }
         if (sessionStatus !== "authenticated" || !session) { setError("User session not available."); return; }
+
         setIsSubmitting(true);
 
         const taskData: CreateTaskPayload = {
@@ -37,7 +51,7 @@ export default function AddTaskForm({ onTaskCreated, onCancel, defaultProjectId,
             description: description.trim() === "" ? undefined : description.trim(),
             project_id: projectId.trim() === "" ? undefined : projectId.trim(),
             status: status,
-            due_date: dueDate.trim() === "" ? undefined : dueDate.trim(),
+            due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : undefined,
         };
 
         const result = await createTask(session, taskData);
@@ -46,8 +60,6 @@ export default function AddTaskForm({ onTaskCreated, onCancel, defaultProjectId,
             setError(result.message || "Failed to create task.");
         } else {
             onTaskCreated(result);
-            setTitle(""); setDescription(""); setProjectId(defaultProjectId || "");
-            setStatus("todo"); setDueDate("");
             if (onCancel) onCancel();
         }
         setIsSubmitting(false);
@@ -61,51 +73,129 @@ export default function AddTaskForm({ onTaskCreated, onCancel, defaultProjectId,
             size="lg"
         >
             <form onSubmit={handleSubmit} className="space-y-4">
-                {error && <p className="text-sm text-red-600 bg-red-100 p-2 rounded-md">{error}</p>}
+                {error && (
+                    <Alert variant="destructive">
+                        <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                )}
 
                 <div>
-                    <label htmlFor="addTaskTitle" className="block text-xs font-medium text-gray-600 mb-0.5">Title <span className="text-red-500">*</span></label>
-                    <input type="text" id="addTaskTitle" value={title} onChange={(e) => setTitle(e.target.value)} required disabled={isSubmitting}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                    <label htmlFor="addTaskTitle" className="block text-sm font-medium mb-1">
+                        Title <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                        id="addTaskTitle"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        required
+                        disabled={isSubmitting}
+                    />
                 </div>
+
                 <div>
-                    <label htmlFor="addTaskDescription" className="block text-xs font-medium text-gray-600 mb-0.5">Description</label>
-                    <textarea id="addTaskDescription" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} disabled={isSubmitting}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                    <label htmlFor="addTaskDescription" className="block text-sm font-medium mb-1">
+                        Description
+                    </label>
+                    <Textarea
+                        id="addTaskDescription"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        rows={3}
+                        disabled={isSubmitting}
+                    />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                        <label htmlFor="addTaskProjectId" className="block text-xs font-medium text-gray-600 mb-0.5">Project</label>
-                        <select id="addTaskProjectId" value={projectId} onChange={(e) => setProjectId(e.target.value)} disabled={isSubmitting}
-                            className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white">
-                            <option value="">No Project</option>
-                            {projects.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
-                        </select>
+                        <label htmlFor="addTaskProjectId" className="block text-sm font-medium mb-1">
+                            Project
+                        </label>
+                        <Select
+                            value={projectId}
+                            onValueChange={setProjectId}
+                            disabled={isSubmitting}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="No Project" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="">No Project</SelectItem>
+                                {projects.map(p => (
+                                    <SelectItem key={p.id} value={p.id}>
+                                        {p.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
+
                     <div>
-                        <label htmlFor="addTaskStatus" className="block text-xs font-medium text-gray-600 mb-0.5">Status</label>
-                        <select id="addTaskStatus" value={status} onChange={(e) => setStatus(e.target.value)} disabled={isSubmitting}
-                            className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white">
-                            <option value="todo">To Do</option> <option value="inprogress">In Progress</option> <option value="done">Done</option>
-                        </select>
+                        <label htmlFor="addTaskStatus" className="block text-sm font-medium mb-1">
+                            Status
+                        </label>
+                        <Select
+                            value={status}
+                            onValueChange={setStatus}
+                            disabled={isSubmitting}
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="todo">To Do</SelectItem>
+                                <SelectItem value="inprogress">In Progress</SelectItem>
+                                <SelectItem value="done">Done</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
+
                     <div>
-                        <label htmlFor="addTaskDueDate" className="block text-xs font-medium text-gray-600 mb-0.5">Due Date</label>
-                        <input type="date" id="addTaskDueDate" value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={isSubmitting}
-                            className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                        <label className="block text-sm font-medium mb-1">
+                            Due Date
+                        </label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className={cn(
+                                        "w-full justify-start text-left font-normal",
+                                        !dueDate && "text-muted-foreground"
+                                    )}
+                                    disabled={isSubmitting}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={dueDate}
+                                    onSelect={setDueDate}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
                     </div>
                 </div>
-                <div className="flex items-center justify-end space-x-3 pt-2">
+
+                <div className="flex justify-end space-x-3 pt-2">
                     {onCancel && (
-                        <button type="button" onClick={onCancel} disabled={isSubmitting}
-                            className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={onCancel}
+                            disabled={isSubmitting}
+                        >
                             Cancel
-                        </button>
+                        </Button>
                     )}
-                    <button type="submit" disabled={isSubmitting || sessionStatus !== "authenticated"}
-                        className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
+                    <Button
+                        type="submit"
+                        disabled={isSubmitting || sessionStatus !== "authenticated"}
+                    >
                         {isSubmitting ? "Adding..." : "Add Task"}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </Modal>

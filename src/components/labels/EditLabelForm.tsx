@@ -1,125 +1,134 @@
 // src/components/labels/EditLabelForm.tsx
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { ColorPicker } from "@/components/ui/color-picker";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { isApiError } from "@/services/common";
-import { updateLabel } from "@/services/labelApi"; // UpdateLabelData pour le payload
-import { Label, UpdateLabelData } from "@/services/types";
-import { DEFAULT_NO_COLOR_VALUE, PREDEFINED_COLORS } from "@/utils/colors";
+import { updateLabel } from "@/services/labelApi";
+import { Label as LabelT, UpdateLabelData } from "@/services/types";
+import { DEFAULT_NO_COLOR_VALUE } from "@/utils/colors";
+import { Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { FormEvent, useEffect, useState } from "react";
-import { Modal } from "../ui/Modal";
-
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 interface EditLabelFormProps {
-    labelToEdit: Label;
-    onLabelUpdated: (updatedLabel: Label) => void;
+    labelToEdit: LabelT;
+    onLabelUpdated: (updatedLabel: LabelT) => void;
     onCancel: () => void;
 }
 
-export default function EditLabelForm({ labelToEdit, onLabelUpdated, onCancel }: EditLabelFormProps) {
-    const { data: session, status: sessionStatus } = useSession();
+export default function EditLabelForm({
+    labelToEdit,
+    onLabelUpdated,
+    onCancel
+}: EditLabelFormProps) {
+    const { data: session } = useSession();
     const [name, setName] = useState(labelToEdit.name);
     const [color, setColor] = useState<string | null>(labelToEdit.color || DEFAULT_NO_COLOR_VALUE);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         setName(labelToEdit.name);
         setColor(labelToEdit.color || DEFAULT_NO_COLOR_VALUE);
     }, [labelToEdit]);
 
-    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        setError(null);
-        if (!name.trim()) { setError("Label name is required."); return; }
-        if (sessionStatus !== "authenticated" || !session) { setError("User session not available."); return; }
-        setIsSubmitting(true);
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
 
-        const updateData: UpdateLabelData = {};
-        let changed = false;
-
-        if (name.trim() !== labelToEdit.name) {
-            updateData.name = name.trim();
-            changed = true;
-        }
-        // Pour la couleur, on veut pouvoir la mettre à null ou la changer
-        // La prop 'color' dans UpdateLabelData est Option<string | null | undefined>
-        // Si la couleur est la même, on n'envoie pas le champ. Si elle a changé, on l'envoie.
-        if (color !== labelToEdit.color) {
-            updateData.color = color; // color est string | null
-            changed = true;
-        }
-
-        if (!changed) {
-            onCancel(); // Pas de changements, juste fermer
-            setIsSubmitting(false);
+        if (!name.trim()) {
+            toast.error("Label name is required");
             return;
         }
 
-        const result = await updateLabel(session, labelToEdit.id, updateData);
-
-        if (isApiError(result)) {
-            setError(result.message || "Failed to update label.");
-        } else {
-            onLabelUpdated(result); // Le backend retourne le label mis à jour
-            onCancel(); // Fermer le formulaire
+        if (!session) {
+            toast.error("Session not available");
+            return;
         }
-        setIsSubmitting(false);
+
+        const updateData: UpdateLabelData = {};
+        let hasChanges = false;
+
+        if (name.trim() !== labelToEdit.name) {
+            updateData.name = name.trim();
+            hasChanges = true;
+        }
+
+        if (color !== labelToEdit.color) {
+            updateData.color = color;
+            hasChanges = true;
+        }
+
+        if (!hasChanges) {
+            onCancel();
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const result = await updateLabel(session, labelToEdit.id, updateData);
+            if (isApiError(result)) {
+                throw new Error(result.message);
+            }
+            toast.success("Label updated successfully");
+            onLabelUpdated(result);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Failed to update label";
+            toast.error("Update failed", {
+                description: message
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
-        <Modal
-            isOpen={true}
-            onClose={onCancel}
-            title="Edit Label"
-            size="md"
-        >
-            <form onSubmit={handleSubmit} className="space-y-4">
-                {error && <p className="text-sm text-red-600 bg-red-100 p-2 rounded">{error}</p>}
+        <Dialog open onOpenChange={onCancel}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Edit Label</DialogTitle>
+                </DialogHeader>
 
-                <div>
-                    <label htmlFor="editLabelName" className="block text-sm font-medium text-gray-700 mb-1">Name <span className="text-red-500">*</span></label>
-                    <input type="text" id="editLabelName" value={name} onChange={(e) => setName(e.target.value)} required disabled={isSubmitting}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
-                </div>
-                <div>
-                    <label htmlFor="editLabelColor" className="block text-sm font-medium text-gray-700 mb-1">Color</label>
-                    <div className="flex flex-wrap gap-2">
-                        {PREDEFINED_COLORS.map(c => (
-                            <button
-                                type="button"
-                                key={c.value}
-                                title={c.name}
-                                onClick={() => setColor(c.value)}
-                                className={`w-6 h-6 rounded-full border-2 transition-all duration-150 
-                                            ${color === c.value ? 'ring-2 ring-offset-1 ring-blue-500 border-blue-500' : 'border-gray-300 hover:border-gray-400'}`}
-                                style={{ backgroundColor: c.value }}
-                                disabled={isSubmitting}
-                            />
-                        ))}
-                        <button
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="edit-label-name">Label Name</Label>
+                        <Input
+                            id="edit-label-name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            required
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Color</Label>
+                        <ColorPicker
+                            selectedColor={color}
+                            onColorChange={setColor}
+                        />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-4">
+                        <Button
                             type="button"
-                            title="No Color"
-                            onClick={() => setColor(null)}
-                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-150
-                                        ${color === null ? 'ring-2 ring-offset-1 ring-blue-500 bg-gray-100 border-blue-500' : 'border-gray-300 hover:border-gray-400 bg-white'}`}
+                            variant="outline"
+                            onClick={onCancel}
                             disabled={isSubmitting}
                         >
-                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                        </button>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
+                            Save Changes
+                        </Button>
                     </div>
-                </div>
-                <div className="flex items-center justify-end space-x-3 pt-3 border-t mt-4">
-                    <button type="button" onClick={onCancel} disabled={isSubmitting}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300">
-                        Cancel
-                    </button>
-                    <button type="submit" disabled={isSubmitting || sessionStatus !== "authenticated"}
-                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-300">
-                        {isSubmitting ? "Saving..." : "Save Changes"}
-                    </button>
-                </div>
-            </form>
-        </Modal>
+                </form>
+            </DialogContent>
+        </Dialog>
     );
 }
