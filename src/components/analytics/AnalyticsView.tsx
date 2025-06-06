@@ -36,36 +36,36 @@ export default function AnalyticsView({ session }: AnalyticsViewProps) {
     period: "this_week",
   });
 
-  const fetchAnalyticsData = async () => {
-    if (!session?.user?.id) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const [timeData, trendData] = await Promise.all([
-        fetchTimeByProject(session, queryParams),
-        fetchProductivityTrend(session, queryParams),
-      ]);
-
-      if (isApiError(timeData)) {
-        throw new Error(timeData.message);
-      }
-      if (isApiError(trendData)) {
-        throw new Error(trendData.message);
-      }
-
-      setTimeByProject(timeData);
-      setProductivityTrend(trendData);
-    } catch (err) {
-      console.error("Failed to fetch analytics data:", err);
-      setError(err instanceof Error ? err.message : "Failed to load analytics data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchAnalyticsData = async () => {
+      if (!session?.user?.id) return;
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const [timeData, trendData] = await Promise.all([
+          fetchTimeByProject(session, queryParams),
+          fetchProductivityTrend(session, queryParams),
+        ]);
+
+        if (isApiError(timeData)) {
+          throw new Error(timeData.message);
+        }
+        if (isApiError(trendData)) {
+          throw new Error(trendData.message);
+        }
+
+        setTimeByProject(timeData);
+        setProductivityTrend(trendData);
+      } catch (err) {
+        console.error("Failed to fetch analytics data:", err);
+        setError(err instanceof Error ? err.message : "Failed to load analytics data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchAnalyticsData();
   }, [session, queryParams]);
 

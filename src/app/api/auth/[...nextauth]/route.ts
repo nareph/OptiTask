@@ -1,5 +1,5 @@
 // src/app/api/auth/[...nextauth]/route.ts
-import NextAuth, { Account, AuthOptions, User as NextAuthUser, Profile, Session } from "next-auth";
+import NextAuth, { Account, User as NextAuthUser, Profile, Session } from "next-auth";
 import { JWT } from "next-auth/jwt"; // JWT sera notre type étendu grâce à next-auth.d.ts
 import GitHubProvider, { GithubProfile } from "next-auth/providers/github";
 import GoogleProvider, { GoogleProfile } from "next-auth/providers/google";
@@ -54,7 +54,8 @@ async function refreshGoogleAccessToken(token: JWT): Promise<JWT> {
     }
 }
 
-export const authOptions: AuthOptions = {
+//export const authOptions: AuthOptions = {
+  const handler = NextAuth({
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -158,7 +159,6 @@ export const authOptions: AuthOptions = {
     signIn: '/signin',
   },
   debug: process.env.NODE_ENV === 'development',
-};
+});
 
-const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
