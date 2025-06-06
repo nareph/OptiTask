@@ -45,6 +45,7 @@ import {
     PlayCircleIcon,
     PlusIcon,
     RefreshCwIcon,
+    TagIcon,
     UserIcon
 } from 'lucide-react';
 import { Timer } from '../timer/Timer';
@@ -76,7 +77,7 @@ export const KANBAN_STATUSES = [
 
 type ViewMode = 'kanban' | 'list';
 type SortBy = 'created' | 'dueDate' | 'title';
-type FilterBy = 'all' | 'overdue' | 'today' | 'week';
+type FilterBy = 'all' | 'overdue' | 'today' | 'week' | 'label';
 
 interface TaskListProps {
     projectIdForFilter?: string | null;
@@ -164,22 +165,77 @@ function TaskFilters({
     setSortBy,
     filterBy,
     setFilterBy,
+    selectedLabelId,
+    setSelectedLabelId,
     viewMode,
     setViewMode,
     showFilters,
-    setShowFilters
+    setShowFilters,
+    usedLabels
 }: {
     sortBy: SortBy;
     setSortBy: (sort: SortBy) => void;
     filterBy: FilterBy;
     setFilterBy: (filter: FilterBy) => void;
+    selectedLabelId: string | null;
+    setSelectedLabelId: (labelId: string | null) => void;
     viewMode: ViewMode;
     setViewMode: (mode: ViewMode) => void;
     showFilters: boolean;
     setShowFilters: (show: boolean) => void;
+    usedLabels: Array<Label & { taskCount: number }>;
 }) {
+    const handleFilterChange = (newFilter: FilterBy) => {
+        setFilterBy(newFilter);
+        if (newFilter !== 'label') {
+            setSelectedLabelId(null);
+        }
+    };
+
     return (
         <div className="flex flex-col space-y-4">
+            {/* Boutons de filtre rapide pour les labels les plus utilisés */}
+            {usedLabels.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                    <Button
+                        variant={filterBy === 'all' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => handleFilterChange('all')}
+                        className="h-8"
+                    >
+                        All ({usedLabels.reduce((sum, label) => sum + label.taskCount, 0)})
+                    </Button>
+                    {usedLabels.slice(0, 5).map((label) => (
+                        <Button
+                            key={label.id}
+                            variant={filterBy === 'label' && selectedLabelId === label.id ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => {
+                                if (filterBy === 'label' && selectedLabelId === label.id) {
+                                    handleFilterChange('all');
+                                } else {
+                                    setFilterBy('label');
+                                    setSelectedLabelId(label.id);
+                                }
+                            }}
+                            className="h-8"
+                            style={{
+                                backgroundColor: filterBy === 'label' && selectedLabelId === label.id
+                                    ? label.color
+                                    : undefined,
+                                borderColor: label.color,
+                                color: filterBy === 'label' && selectedLabelId === label.id
+                                    ? '#ffffff'
+                                    : label.color
+                            }}
+                        >
+                            {label.name} ({label.taskCount})
+                        </Button>
+                    ))}
+                </div>
+            )}
+
+            {/* Filtres existants */}
             <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center space-x-2">
                     <Button
@@ -189,9 +245,10 @@ function TaskFilters({
                         className="flex items-center space-x-1"
                     >
                         <FilterIcon className="h-4 w-4" />
-                        <span>Filters</span>
+                        <span>Advanced Filters</span>
                     </Button>
 
+                    {/* Toggle view mode */}
                     <div className="flex items-center border rounded-md">
                         <Toggle
                             pressed={viewMode === 'kanban'}
@@ -215,6 +272,7 @@ function TaskFilters({
 
             {showFilters && (
                 <div className="flex flex-wrap gap-4 p-4 bg-filters rounded-lg border">
+                    {/* Filtres existants */}
                     <div className="flex items-center space-x-2">
                         <CalendarIcon className="h-4 w-4 text-filters" />
                         <Select value={sortBy} onValueChange={(value: SortBy) => setSortBy(value)}>
@@ -224,7 +282,6 @@ function TaskFilters({
                             <SelectContent>
                                 <SelectItem value="created">Created</SelectItem>
                                 <SelectItem value="dueDate">Due Date</SelectItem>
-                                <SelectItem value="priority">Priority</SelectItem>
                                 <SelectItem value="title">Title</SelectItem>
                             </SelectContent>
                         </Select>
@@ -232,7 +289,7 @@ function TaskFilters({
 
                     <div className="flex items-center space-x-2">
                         <UserIcon className="h-4 w-4 text-filters" />
-                        <Select value={filterBy} onValueChange={(value: FilterBy) => setFilterBy(value)}>
+                        <Select value={filterBy} onValueChange={handleFilterChange}>
                             <SelectTrigger className="w-32">
                                 <SelectValue />
                             </SelectTrigger>
@@ -241,9 +298,41 @@ function TaskFilters({
                                 <SelectItem value="overdue">Overdue</SelectItem>
                                 <SelectItem value="today">Due Today</SelectItem>
                                 <SelectItem value="week">Due This Week</SelectItem>
+                                <SelectItem value="label">By Label</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
+
+                    {/* Sélecteur de label avancé */}
+                    {filterBy === 'label' && (
+                        <div className="flex items-center space-x-2">
+                            <TagIcon className="h-4 w-4 text-filters" />
+                            <Select
+                                value={selectedLabelId || ''}
+                                onValueChange={(value) => setSelectedLabelId(value || null)}
+                            >
+                                <SelectTrigger className="w-48">
+                                    <SelectValue placeholder="Select a label..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {usedLabels.map((label) => (
+                                        <SelectItem key={label.id} value={label.id}>
+                                            <div className="flex items-center space-x-2">
+                                                <div
+                                                    className="w-3 h-3 rounded-full"
+                                                    style={{ backgroundColor: label.color }}
+                                                />
+                                                <span>{label.name}</span>
+                                                <Badge variant="secondary" className="text-xs">
+                                                    {label.taskCount}
+                                                </Badge>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
@@ -270,6 +359,7 @@ export default function TaskList({
     const [activeTask, setActiveTask] = useState<TaskWithLabels | null>(null);
     const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
     const [optimisticUpdates, setOptimisticUpdates] = useState<Map<string, { originalTask: TaskWithLabels, timestamp: number }>>(new Map());
+    const [selectedLabelId, setSelectedLabelId] = useState<string | null>(null);
 
     // Nouveaux états pour les améliorations
     const [viewMode, setViewMode] = useState<ViewMode>('kanban');
@@ -317,6 +407,13 @@ export default function TaskList({
                     task.due_date && new Date(task.due_date) <= weekFromNow
                 );
                 break;
+            case 'label':
+                if (selectedLabelId) {
+                    filtered = filtered.filter(task =>
+                        task.labels?.some(label => label.id === selectedLabelId)
+                    );
+                }
+                break;
         }
 
         // Tri
@@ -336,7 +433,26 @@ export default function TaskList({
         });
 
         return filtered;
-    }, [filterBy, sortBy]);
+    }, [filterBy, selectedLabelId, sortBy]);
+
+    const getUsedLabels = useCallback((tasks: TaskWithLabels[]) => {
+        const labelMap = new Map();
+
+        tasks.forEach(task => {
+            task.labels?.forEach(label => {
+                if (!labelMap.has(label.id)) {
+                    labelMap.set(label.id, {
+                        ...label,
+                        taskCount: 0
+                    });
+                }
+                labelMap.get(label.id).taskCount++;
+            });
+        });
+
+        return Array.from(labelMap.values())
+            .sort((a, b) => b.taskCount - a.taskCount);
+    }, []);
 
     const loadTasks = useCallback(async (force = false) => {
         if (sessionStatus !== "authenticated" || !session?.user?.id) {
@@ -631,6 +747,8 @@ export default function TaskList({
         overdue: tasks.filter(t => t.due_date && new Date(t.due_date) < new Date()).length,
     };
 
+    const usedLabels = getUsedLabels(tasks);
+
     return (
         <div className="flex flex-col h-full space-y-6">
             {showTimer && (
@@ -694,10 +812,13 @@ export default function TaskList({
                         setSortBy={setSortBy}
                         filterBy={filterBy}
                         setFilterBy={setFilterBy}
+                        selectedLabelId={selectedLabelId}
+                        setSelectedLabelId={setSelectedLabelId}
                         viewMode={viewMode}
                         setViewMode={setViewMode}
                         showFilters={showFilters}
                         setShowFilters={setShowFilters}
+                        usedLabels={usedLabels}
                     />
                 </div>
 
@@ -885,3 +1006,4 @@ export default function TaskList({
         </div>
     );
 }
+

@@ -1,13 +1,16 @@
 // OptiTask/next.config.ts
 import { NextConfig } from 'next';
 
+const RUST_BACKEND_URL = process.env.NEXT_PUBLIC_RUST_BACKEND_URL || 'http://localhost:8080';
+
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   async rewrites() {
     return [
       {
         source: '/api/rust/:path*',
-        destination: 'http://localhost:8080/:path*',
+        destination: `${RUST_BACKEND_URL}/:path*`,
       },
     ];
   },
