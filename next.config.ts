@@ -1,16 +1,29 @@
 // OptiTask/next.config.ts
 import { NextConfig } from 'next';
 
-const RUST_BACKEND_URL = process.env.NEXT_PUBLIC_RUST_BACKEND_URL || 'http://localhost:8080';
-
+// Validate and provide detailed error for missing backend URL
+const RUST_BACKEND_URL = (() => {
+  const url = process.env.NEXT_PUBLIC_RUST_BACKEND_URL;
+  if (!url && process.env.NODE_ENV === 'production') {
+   console.error('Missing NEXT_PUBLIC_RUST_BACKEND_URL - API requests will fail in production');
+  }
+  return url || 'http://localhost:8080';
+})();
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   async rewrites() {
+      console.log(RUST_BACKEND_URL);
+    if (!RUST_BACKEND_URL) {
+      console.error('RUST_BACKEND_URL is not configured');
+
+      return [];
+    }
+    
     return [
       {
         source: '/api/rust/:path*',
-        destination: `${RUST_BACKEND_URL}/:path*`,
+        destination: `${RUST_BACKEND_URL}/:path*`, 
       },
     ];
   },
@@ -18,20 +31,20 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'lh3.googleusercontent.com', // Pour les avatars Google
-        port: '',
-        pathname: '/a/**',
+        hostname: 'lh3.googleusercontent.com',
       },
       {
         protocol: 'https',
-        hostname: 'avatars.githubusercontent.com', // Pour les avatars GitHub
-        port: '',
-        pathname: '/u/**', // Le pattern typique pour les avatars GitHub (ex: /u/USER_ID?v=4)
+        hostname: 'avatars.githubusercontent.com',
       },
-      // Ajoutez d'autres domaines ici si nécessaire à l'avenir
     ],
   },
-  // Ajoutez ici d'autres configurations Next.js si nécessaire
+  // Enable detailed logging in development
+  logging: {
+    fetches: {
+      fullUrl: true,
+    },
+  },
 };
 
 export default nextConfig;
