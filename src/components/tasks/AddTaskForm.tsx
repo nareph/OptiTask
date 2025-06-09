@@ -119,7 +119,7 @@ export default function AddTaskForm({
                                 <SelectValue placeholder="No Project" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">No Project</SelectItem>
+                                <SelectItem value="NO_PROJECT">No Project</SelectItem>
                                 {projects.map(p => (
                                     <SelectItem key={p.id} value={p.id}>
                                         {p.name}

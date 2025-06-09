@@ -37,6 +37,10 @@ import {
 import {
     CalendarIcon,
     CheckCircleIcon,
+    ChevronLeftIcon,
+    ChevronRightIcon,
+    ChevronsLeftIcon,
+    ChevronsRightIcon,
     ClockIcon,
     FilterIcon,
     FlagIcon,
@@ -89,6 +93,14 @@ interface TaskListProps {
     areParentResourcesLoading: boolean;
     showTimer?: boolean;
     onPomodoroStateChange: (isActive: boolean) => void;
+}
+
+// Interface pour les données de pagination
+interface PaginationData {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    itemsPerPage: number;
 }
 
 function DroppableColumn({
@@ -157,6 +169,133 @@ function DroppableColumn({
                 {children}
             </div>
         </Card>
+    );
+}
+
+function PaginationControls({
+    pagination,
+    onPageChange,
+    onItemsPerPageChange,
+    isLoading
+}: {
+    pagination: PaginationData;
+    onPageChange: (page: number) => void;
+    onItemsPerPageChange: (itemsPerPage: number) => void;
+    isLoading: boolean;
+}) {
+    const { currentPage, totalPages, totalItems, itemsPerPage } = pagination;
+
+    const getVisiblePages = () => {
+        const delta = 2;
+        const range = [];
+        const rangeWithDots = [];
+
+        for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
+            range.push(i);
+        }
+
+        if (currentPage - delta > 2) {
+            rangeWithDots.push(1, '...');
+        } else {
+            rangeWithDots.push(1);
+        }
+
+        rangeWithDots.push(...range);
+
+        if (currentPage + delta < totalPages - 1) {
+            rangeWithDots.push('...', totalPages);
+        } else if (totalPages > 1) {
+            rangeWithDots.push(totalPages);
+        }
+
+        return rangeWithDots;
+    };
+
+    if (totalPages <= 1) return null;
+
+    return (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 p-4 bg-muted/50 rounded-lg">
+            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                <span>
+                    Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)} to{' '}
+                    {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} tasks
+                </span>
+            </div>
+
+            <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1 mr-4">
+                    <span className="text-sm text-muted-foreground">Per page:</span>
+                    <Select
+                        value={itemsPerPage.toString()}
+                        onValueChange={(value) => onItemsPerPageChange(parseInt(value))}
+                        disabled={isLoading}
+                    >
+                        <SelectTrigger className="w-20 h-8">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="10">10</SelectItem>
+                            <SelectItem value="25">25</SelectItem>
+                            <SelectItem value="50">50</SelectItem>
+                            <SelectItem value="100">100</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="flex items-center space-x-1">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onPageChange(1)}
+                        disabled={currentPage === 1 || isLoading}
+                        className="h-8 w-8 p-0"
+                    >
+                        <ChevronsLeftIcon className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onPageChange(currentPage - 1)}
+                        disabled={currentPage === 1 || isLoading}
+                        className="h-8 w-8 p-0"
+                    >
+                        <ChevronLeftIcon className="h-4 w-4" />
+                    </Button>
+
+                    {getVisiblePages().map((page, index) => (
+                        <Button
+                            key={index}
+                            variant={page === currentPage ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => typeof page === 'number' && onPageChange(page)}
+                            disabled={typeof page !== 'number' || isLoading}
+                            className="h-8 min-w-8 px-2"
+                        >
+                            {page}
+                        </Button>
+                    ))}
+
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onPageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages || isLoading}
+                        className="h-8 w-8 p-0"
+                    >
+                        <ChevronRightIcon className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onPageChange(totalPages)}
+                        disabled={currentPage === totalPages || isLoading}
+                        className="h-8 w-8 p-0"
+                    >
+                        <ChevronsRightIcon className="h-4 w-4" />
+                    </Button>
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -361,6 +500,14 @@ export default function TaskList({
     const [optimisticUpdates, setOptimisticUpdates] = useState<Map<string, { originalTask: TaskWithLabels, timestamp: number }>>(new Map());
     const [selectedLabelId, setSelectedLabelId] = useState<string | null>(null);
 
+    // États pour la pagination
+    const [pagination, setPagination] = useState<PaginationData>({
+        currentPage: 1,
+        totalPages: 1,
+        totalItems: 0,
+        itemsPerPage: 25
+    });
+
     // Nouveaux états pour les améliorations
     const [viewMode, setViewMode] = useState<ViewMode>('kanban');
     const [sortBy, setSortBy] = useState<SortBy>('created');
@@ -383,11 +530,11 @@ export default function TaskList({
         })
     );
 
-    // Fonction de filtrage et tri améliorée
+    // Fonction de filtrage et tri côté client (pour les données déjà chargées)
     const getFilteredAndSortedTasks = useCallback((tasks: TaskWithLabels[]) => {
         let filtered = [...tasks];
 
-        // Filtrage
+        // Filtrage côté client
         switch (filterBy) {
             case 'overdue':
                 filtered = filtered.filter(task =>
@@ -416,7 +563,7 @@ export default function TaskList({
                 break;
         }
 
-        // Tri
+        // Tri côté client
         filtered.sort((a, b) => {
             switch (sortBy) {
                 case 'dueDate':
@@ -454,7 +601,7 @@ export default function TaskList({
             .sort((a, b) => b.taskCount - a.taskCount);
     }, []);
 
-    const loadTasks = useCallback(async (force = false) => {
+    const loadTasks = useCallback(async (force = false, page = pagination.currentPage) => {
         if (sessionStatus !== "authenticated" || !session?.user?.id) {
             setIsLoading(false);
             setTasks([]);
@@ -472,16 +619,27 @@ export default function TaskList({
 
         try {
             const result = await fetchTasks(session, {
-                project_id: projectIdForFilter || undefined
+                project_id: projectIdForFilter || undefined,
+                page: page,
+                per_page: pagination.itemsPerPage
             });
 
             if (isApiError(result)) {
                 throw new Error(result.message);
             }
 
-            setTasks(result);
+            // Mise à jour des tâches et des données de pagination
+            setTasks(Array.isArray(result.items) ? result.items : []);
+            setPagination({
+                currentPage: result.page,
+                totalPages: result.total_pages,
+                totalItems: result.total_items,
+                itemsPerPage: result.per_page
+            });
+
             isInitialLoadRef.current = false;
 
+            // Nettoyage des mises à jour optimistes
             setOptimisticUpdates(prev => {
                 const now = Date.now();
                 const newMap = new Map();
@@ -498,7 +656,22 @@ export default function TaskList({
         } finally {
             setIsLoading(false);
         }
-    }, [session, sessionStatus, projectIdForFilter]);
+    }, [session, sessionStatus, projectIdForFilter, pagination.currentPage, pagination.itemsPerPage]);
+
+    // Gestionnaires de pagination
+    const handlePageChange = useCallback((newPage: number) => {
+        setPagination(prev => ({ ...prev, currentPage: newPage }));
+        loadTasks(true, newPage);
+    }, [loadTasks]);
+
+    const handleItemsPerPageChange = useCallback((newItemsPerPage: number) => {
+        setPagination(prev => ({
+            ...prev,
+            itemsPerPage: newItemsPerPage,
+            currentPage: 1 // Reset à la page 1 quand on change le nombre d'éléments par page
+        }));
+        loadTasks(true, 1);
+    }, [loadTasks]);
 
     useEffect(() => {
         let isComponentMounted = true;
@@ -527,6 +700,14 @@ export default function TaskList({
         };
     }, [sessionStatus, projectIdForFilter, loadTasks]);
 
+    // Reset pagination when filters change
+    useEffect(() => {
+        if (!isInitialLoadRef.current) {
+            setPagination(prev => ({ ...prev, currentPage: 1 }));
+            loadTasks(true, 1);
+        }
+    }, [filterBy, selectedLabelId, sortBy]);
+
     const handleTaskCreated = () => {
         setShowAddForm(false);
         loadTasks(true);
@@ -550,6 +731,14 @@ export default function TaskList({
 
             setTasks(prevTasks => prevTasks.filter(t => t.id !== taskId));
             onTasksDataChanged();
+
+            // Recharger si on supprime le dernier élément de la page
+            const remainingTasksOnPage = tasks.length - 1;
+            if (remainingTasksOnPage === 0 && pagination.currentPage > 1) {
+                handlePageChange(pagination.currentPage - 1);
+            } else {
+                loadTasks(true);
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to delete task");
             loadTasks(true);
@@ -980,6 +1169,14 @@ export default function TaskList({
                             </DndContext>
                         )}
                     </>
+                )}
+                {!isLoading && session && sessionStatus === "authenticated" && (
+                    <PaginationControls
+                        pagination={pagination}
+                        onPageChange={handlePageChange}
+                        onItemsPerPageChange={handleItemsPerPageChange}
+                        isLoading={isLoading}
+                    />
                 )}
             </div>
 
